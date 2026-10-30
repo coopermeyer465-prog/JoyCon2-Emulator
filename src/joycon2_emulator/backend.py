@@ -27,6 +27,15 @@ RATE_DESCRIPTOR = "679d5510-5a24-4dee-9557-95df80486ecb"
 UNKNOWN_DESCRIPTOR = "b746df8c-f358-495b-9cd2-e3bbeda4f979"
 
 
+async def notify_input(device, connection, characteristic, report):
+    queue = device.host.get_data_packet_queue(connection.handle)
+    if queue is None:
+        raise RuntimeError("No transmit queue for input connection")
+    await device.notify_subscribers(characteristic, report)
+    # Notification submission alone does not wait for HCI packet completion.
+    await queue.drain(connection.handle)
+
+
 def install_services(device, on_command):
     def char(uuid, properties, value=b"", descriptor=None):
         result = Characteristic(uuid, properties, R | (W if properties & (P.WRITE | P.WRITE_WITHOUT_RESPONSE) else 0), value)
@@ -192,7 +201,7 @@ async def serve(address, transport, bond_file, seconds, calibration=None, test_b
                         pulse_sent = True
                         LOG.info("Sending opt-in %s test pulse for %d ms", test_button, pulse.duration_ms)
                     raw_x, raw_y = controller.memory.logical_stick(x, y)
-                    await asyncio.wait_for(device.notify_subscribers(
+                    await asyncio.wait_for(notify_input(device, active_connection,
                         inputs, right_report(counter, buttons, x=raw_x, y=raw_y)), 2)
                     current_input = (buttons, x, y)
                     if current_input != last_input:
@@ -210,7 +219,7 @@ async def serve(address, transport, bond_file, seconds, calibration=None, test_b
             state.release()
             if state.ready:
                 try:
-                    await asyncio.wait_for(device.notify_subscribers(
+                    await asyncio.wait_for(notify_input(device, active_connection,
                         inputs, right_report(counter, x=center_x, y=center_y)), 1)
                     await asyncio.sleep(0.1)
                 except Exception:

@@ -108,3 +108,9 @@ according to the user. Short-HOME control is therefore not validated. Transition
 logging was added at the BLE notification call to distinguish queued command
 state from reports actually submitted to the transport; neither proves console
 acceptance.
+The user later saw Quick Settings, indicating eventual HOME delivery but not a
+correct short tap. Inspection of Bumble 0.0.235 confirmed notification submission
+does not await HCI transmit completion. The input loop now drains the connection's
+ACL queue after each report to prevent unbounded report backlog. This is a
+candidate timing fix, not yet console-validated; HCI completion is not an
+application-level acknowledgement from the console.
