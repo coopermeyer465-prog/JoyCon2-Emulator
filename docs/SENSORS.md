@@ -141,16 +141,25 @@ Put exactly one owned right Joy-Con into SYNC mode first. Discovery filters for
 the right-half product and a zeroed reconnect-host field; multiple matching
 controllers are refused. The reader scans for eight seconds, connects to the
 common-input service, subscribes, and sends the two reporting commands 500 ms
-apart. The complete run has a 45-second timeout and at most 512 frames. It then
+apart. The complete run has a 45-second timeout and at most 2048 frames. It then
 disables runtime reporting and disconnects. Capture files use mode 0600 and are
 never overwritten; no addresses, pairing keys or firmware are recorded.
+If a connection drops after valid reports arrive, those reports are retained
+with `capture_complete: false` and exit code 3. Such a partial recording is
+diagnostic evidence, not a successful full-duration test. Empty captures are
+still not saved. The native self-test checks both the 2048-frame limit and this
+partial-capture behavior without accessing Bluetooth.
 
 Stationary data is a baseline at an **unknown tilt**, not a recalibration. For
 optical samples the sensor edge must face the table as in mouse mode; laying the
 controller face-up leaves the sensor away from the surface. Move it only once
 the helper announces recording. The first capture contained plausible stationary
 acceleration/gyro readings and lifted optical readings; optical motion and live
-emulated gyro still require further tests. Captures remain private and are not
+emulated gyro still required further tests at that stage. A later completed
+10-second movement recording saved 748 reports with changing optical X/Y counters,
+surface/distance fields and gyro readings. This confirms native physical sensor
+acquisition, not the emulator's compact-report encoding or calibrated angular
+units. Captures remain private and are not
 distributed in this repository.
 
 ## References

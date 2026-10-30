@@ -9,6 +9,7 @@
 static NSString *const ServiceID = @"AB7DE9BE-89FE-49AD-828F-118F09DF7FD0";
 static NSString *const InputID = @"AB7DE9BE-89FE-49AD-828F-118F09DF7FD2";
 static NSString *const CommandID = @"649D4AC9-8EB7-4E6C-AF44-1EA54FE5F005";
+static const NSUInteger MaxFrames = 2048;
 
 static BOOL isSyncRight(NSData *data) {
     if (data.length < 26) return NO;
@@ -31,8 +32,8 @@ static NSDictionary *frame(NSData *data, NSTimeInterval elapsed) {
     return @{@"kind": @"common", @"elapsed": @(elapsed), @"data": hex};
 }
 
-static BOOL savePrivate(NSString *path, NSArray *frames, NSError **error) {
-    NSData *json = [NSJSONSerialization dataWithJSONObject:@{@"version": @1, @"frames": frames}
+static BOOL savePrivate(NSString *path, NSArray *frames, BOOL complete, NSError **error) {
+    NSData *json = [NSJSONSerialization dataWithJSONObject:@{@"version": @1, @"frames": frames, @"capture_complete": @(complete)}
                                                  options:0 error:error];
     if (!json) return NO;
     NSString *parent = path.stringByDeletingLastPathComponent;
@@ -79,6 +80,7 @@ static BOOL savePrivate(NSString *path, NSArray *frames, NSError **error) {
 @property int result;
 - (void)start;
 - (void)finish:(NSString *)failure;
+- (void)recordValue:(NSData *)data;
 @end
 
 @implementation SensorReader
@@ -182,11 +184,15 @@ static BOOL savePrivate(NSString *path, NSArray *frames, NSError **error) {
 - (void)peripheral:(CBPeripheral *)peripheral didUpdateValueForCharacteristic:(CBCharacteristic *)characteristic error:(NSError *)error {
     if (self.done || error || ![characteristic.UUID isEqual:[CBUUID UUIDWithString:InputID]]) return;
     NSData *data = characteristic.value;
+    if (data) [self recordValue:data];
+}
+- (void)recordValue:(NSData *)data {
+    if (self.done) return;
     NSNumber *length = @(data.length);
     self.lengths[length] = @([self.lengths[length] unsignedIntegerValue] + 1);
     NSDictionary *sample = frame(data, NSProcessInfo.processInfo.systemUptime - self.started);
-    if (sample && self.frames.count < 512) [self.frames addObject:sample];
-    if (self.frames.count == 512) [self finish:nil];
+    if (sample && self.frames.count < MaxFrames) [self.frames addObject:sample];
+    if (self.frames.count == MaxFrames) [self finish:nil];
 }
 - (void)finish:(NSString *)failure {
     if (self.done) return;
@@ -195,11 +201,13 @@ static BOOL savePrivate(NSString *path, NSArray *frames, NSError **error) {
     if (self.peripheral.state == CBPeripheralStateConnected && self.command) {
         [self.peripheral writeValue:featureCommand(5) forCharacteristic:self.command type:CBCharacteristicWriteWithoutResponse];
     }
-    if (!failure && self.frames.count) {
+    if (self.frames.count) {
         NSError *error = nil;
-        if (savePrivate(self.output, self.frames, &error)) {
-            printf("Saved %lu native input reports privately.\n", (unsigned long)self.frames.count);
-            self.result = 0;
+        if (savePrivate(self.output, self.frames, failure == nil, &error)) {
+            printf("Saved %lu native input reports privately%s.\n", (unsigned long)self.frames.count,
+                   failure ? " (partial capture)" : "");
+            if (failure) fprintf(stderr, "%s\n", failure.UTF8String);
+            self.result = failure ? 3 : 0;
         } else {
             fprintf(stderr, "Private capture could not be saved: %s\n", error.localizedDescription.UTF8String);
         }
@@ -225,9 +233,26 @@ static int selfTest(void) {
     NSString *directory = [NSTemporaryDirectory() stringByAppendingPathComponent:NSUUID.UUID.UUIDString];
     NSString *output = [directory stringByAppendingPathComponent:@"capture.json"];
     NSError *error = nil;
-    if (!savePrivate(output, @[], &error) || savePrivate(output, @[], &error)) return 1;
+    if (!savePrivate(output, @[], YES, &error) || savePrivate(output, @[], YES, &error)) return 1;
     NSDictionary *attrs = [[NSFileManager defaultManager] attributesOfItemAtPath:output error:nil];
     if (([attrs[NSFilePosixPermissions] unsignedIntValue] & 0777) != 0600) return 1;
+    SensorReader *reader = [SensorReader new];
+    reader.frames = [NSMutableArray array];
+    reader.lengths = [NSMutableDictionary dictionary];
+    reader.output = [directory stringByAppendingPathComponent:@"bounded.json"];
+    NSData *input = [NSMutableData dataWithLength:63];
+    for (NSUInteger i = 0; i < MaxFrames + 10; i++) {
+        [reader recordValue:input];
+    }
+    if (reader.frames.count != MaxFrames || !reader.done || reader.result != 0) return 1;
+    SensorReader *partial = [SensorReader new];
+    partial.frames = [NSMutableArray arrayWithObject:frame(input, 0)];
+    partial.lengths = [NSMutableDictionary dictionary];
+    partial.output = [directory stringByAppendingPathComponent:@"partial.json"];
+    [partial finish:@"Synthetic disconnect test"];
+    NSData *partialData = [NSData dataWithContentsOfFile:partial.output];
+    NSDictionary *partialJSON = [NSJSONSerialization JSONObjectWithData:partialData options:0 error:nil];
+    if (partial.result != 3 || [partialJSON[@"capture_complete"] boolValue] || [partialJSON[@"frames"] count] != 1) return 1;
     [[NSFileManager defaultManager] removeItemAtPath:directory error:nil];
     puts("Native self-tests passed: discovery filter, packet bounds, private/exclusive output.");
     return 0;

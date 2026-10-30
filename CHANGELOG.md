@@ -4,6 +4,12 @@
 
 ### Native Sensor Capture
 
+- Increased the native reader's bound to 2048 reports so human movement tests
+  can use the requested duration, and retain explicitly labelled partial captures
+  after link loss. Added native regression checks for both behaviors.
+- Completed a subsequent native movement recording with 748 reports containing
+  optical motion on both axes and changing gyro readings. Physical sensor capture
+  works; this is not a claim of live compact-report mouse/gyro emulation.
 - Added a bounded, capture-only macOS CoreBluetooth helper and build wrapper;
   native discovery/file-safety self-tests pass, and a requested five-second
   recording (about 6.3 seconds including startup reports) saved 401 common input
