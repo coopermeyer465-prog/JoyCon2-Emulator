@@ -17,6 +17,23 @@ class InputStateTests(unittest.TestCase):
         self.assertEqual(self.state.snapshot(10.1), (("SL", "SR"), 0.0, 0.0))
         self.assertEqual(self.state.snapshot(10.25), ((), 0.0, 0.0))
 
+    def test_sideways_right_screen_directions(self):
+        for x, y, raw_x, raw_y in ((1, 0, 0, 1), (-1, 0, 0, -1),
+                                    (0, 1, -1, 0), (0, -1, 1, 0),
+                                    (0.5, -0.25, 0.25, 0.5)):
+            with self.subTest(x=x, y=y):
+                self.state.execute({"op": "set", "state": {
+                    "x": x, "y": y, "orientation": "sideways-right", "duration": 0.1}}, 0)
+                self.assertEqual(self.state.snapshot(0.05), ((), raw_x, raw_y))
+                self.assertEqual(self.state.snapshot(0.1), ((), 0.0, 0.0))
+
+    def test_orientation_in_sequence_does_not_rotate_buttons(self):
+        self.state.execute({"op": "sequence", "steps": [
+            {"x": 0.5, "duration": 0.1},
+            {"x": 0.5, "buttons": ["A"], "orientation": "sideways-right", "duration": 0.1}]}, 0)
+        self.assertEqual(self.state.snapshot(0.05), ((), 0.5, 0))
+        self.assertEqual(self.state.snapshot(0.15), (("A",), 0, 0.5))
+
     def test_sequence_order_and_release_preemption(self):
         self.state.execute({"op": "sequence", "steps": [
             {"buttons": ["A"], "duration": 0.1}, {"duration": 0.2},
@@ -30,7 +47,8 @@ class InputStateTests(unittest.TestCase):
     def test_invalid_input_does_not_replace_active_command(self):
         self.state.execute({"op": "set", "state": {"buttons": ["B"], "duration": 1}}, 0)
         for value in ({"buttons": ["ZL"]}, {"x": math.nan}, {"x": 2}, {"duration": 0},
-                      {"duration": 11}, {"x": True}, {"unexpected": 1}):
+                      {"duration": 11}, {"x": True}, {"unexpected": 1},
+                      {"orientation": "unknown"}, {"orientation": []}):
             with self.subTest(value=value), self.assertRaises(ValueError):
                 self.state.execute({"op": "set", "state": value}, 0.1)
         self.assertEqual(self.state.snapshot(0.2)[0], ("B",))

@@ -120,3 +120,10 @@ HOME tap from System Settings returned to HOME, confirmed by the user. The log
 showed one pressed report followed by neutral, with HCI completion awaited. This
 validates one short-HOME trial on this setup, not general input latency, repeat
 reliability or right-stick behavior.
+
+Later user-confirmed trials: a 100 ms B tap backed out of System Settings, and a
+100 ms A tap opened highlighted System Settings. Stick movement reached the
+console, but a positive raw X command moved down rather than right. An earlier
+two-direction trial was reported as moving left without identifying which pulse
+caused it. The new opt-in `sideways-right` inverse rotation is unit-tested but
+not yet verified in all four screen directions; raw mode remains the default.

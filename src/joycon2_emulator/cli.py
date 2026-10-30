@@ -45,6 +45,8 @@ def main():
     stick.add_argument("--x", type=float, default=0)
     stick.add_argument("--y", type=float, default=0)
     stick.add_argument("--duration", type=float, default=0.25)
+    stick.add_argument("--orientation", choices=("raw", "sideways-right"), default="raw",
+                       help="raw axes or screen-oriented axes for a sideways right Joy-Con")
     sequence = actions.add_parser("sequence", help="Replace input with a bounded JSON array of steps")
     sequence.add_argument("file", type=Path)
     args = parser.parse_args()
@@ -76,7 +78,8 @@ def main():
         if args.action == "press":
             request = {"op": "set", "state": {"buttons": [button.upper() for button in args.buttons], "duration": args.duration}}
         elif args.action == "stick":
-            request = {"op": "set", "state": {"x": args.x, "y": args.y, "duration": args.duration}}
+            request = {"op": "set", "state": {"x": args.x, "y": args.y, "duration": args.duration,
+                                               "orientation": args.orientation}}
         elif args.action == "sequence":
             if args.file.stat().st_size > 65536:
                 parser.error("Sequence file exceeds 64 KiB")

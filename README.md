@@ -137,8 +137,19 @@ sequences allow up to 256 steps and 300 seconds total. These are host-side timin
 not guarantees of radio delivery or game latency. A successful reply means the
 input was queued, not that the console acknowledged its visible effect.
 
+Axes default to `--orientation raw` (physical right Joy-Con coordinates). When
+registered as a single sideways right Joy-Con, the console may rotate them:
+positive raw X moved down in the development test. Use the opt-in orientation
+below for screen-relative right/up commands. This applies the inverse rotation
+`raw_x = -y, raw_y = x`; it still needs a four-direction console check. Button
+names are unchanged, and status reports the transformed raw coordinates.
+
+```sh
+./scripts/j2 stick --orientation sideways-right --x 0.75 --y 0 --duration 0.2
+```
+
 `./scripts/j2 sequence examples/button-stick.json` sends a JSON step array with
-optional `buttons`, `x`, `y` and `duration` fields. **That example presses A**;
+optional `buttons`, `x`, `y`, `orientation` and `duration` fields. **That example presses A**;
 inspect it before running it on a console. Sequences avoid one SSH round trip per
 step. `release` cancels pending input immediately at the host scheduler.
 

@@ -21,16 +21,21 @@ def number(value, minimum, maximum, name):
 
 
 def step(value):
-    if not isinstance(value, dict) or set(value) - {"buttons", "x", "y", "duration"}:
-        raise ValueError("Step accepts buttons, x, y and duration only")
+    if not isinstance(value, dict) or set(value) - {"buttons", "x", "y", "duration", "orientation"}:
+        raise ValueError("Step accepts buttons, x, y, duration and orientation only")
     buttons = value.get("buttons", [])
     if not isinstance(buttons, list) or len(buttons) > len(RIGHT_BUTTONS):
         raise ValueError("buttons must be a short list")
     if any(not isinstance(button, str) or button not in RIGHT_BUTTONS for button in buttons):
         raise ValueError("Unsupported right Joy-Con button")
-    return {"buttons": tuple(sorted(set(buttons))),
-            "x": number(value.get("x", 0), -1, 1, "x"),
-            "y": number(value.get("y", 0), -1, 1, "y"),
+    x = number(value.get("x", 0), -1, 1, "x")
+    y = number(value.get("y", 0), -1, 1, "y")
+    orientation = value.get("orientation", "raw")
+    if orientation not in ("raw", "sideways-right"):
+        raise ValueError("Unknown stick orientation")
+    if orientation == "sideways-right":
+        x, y = -y, x
+    return {"buttons": tuple(sorted(set(buttons))), "x": x, "y": y,
             "duration": number(value.get("duration", 0.05), 0.02, 10, "duration")}
 
 
