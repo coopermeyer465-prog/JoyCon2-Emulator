@@ -47,45 +47,7 @@ const ControllerType = {
     JOYCON_R: "joycon_r"
 }
 
-const KEYMAP = {
-    // Left Stick
-    87: "LS_UP",
-    65: "LS_LEFT",
-    68: "LS_RIGHT",
-    83: "LS_DOWN",
-    84: "LS_PRESS",
-    // Right Stick
-    38: "RS_UP",
-    37: "RS_LEFT",
-    39: "RS_RIGHT",
-    40: "RS_DOWN",
-    89: "RS_PRESS",
-    // Dpad
-    71: "DPAD_UP",
-    86: "DPAD_LEFT",
-    78: "DPAD_RIGHT",
-    66: "DPAD_DOWN",
-    // Home & Capture
-    219: "HOME",
-    221: "CAPTURE",
-    // Plus & Minus
-    54: "PLUS",
-    55: "MINUS",
-    // A B X Y
-    76: "A",
-    75: "B",
-    73: "X",
-    74: "Y",
-    // L & ZL
-    49: "L",
-    50: "ZL",
-    // R & ZR
-    56: "ZR",
-    57: "R",
-    48: "C",
-    189: "JCR_SL",
-    187: "JCR_SR",
-}
+const KEYMAP = NxbtKeyboard.KEYMAP;
 
 const LEFT_STICK = [
     "LS_UP",
@@ -175,7 +137,8 @@ function sendInputIfChanged() {
     if (NXBT_CONTROLLER_INDEX !== false && (changed || (joycon && !sequenceRunning && now - lastInputSent > 100))) {
         if (changed) sequenceRunning = false;
         const options = {stick: document.getElementById("joycon-stick").value,
-            orientation: document.getElementById("joycon-orientation").value};
+            orientation: document.getElementById("joycon-orientation").value,
+            button_layout: document.getElementById("joycon-face-layout").value};
         socket.emit('input', JSON.stringify([NXBT_CONTROLLER_INDEX, INPUT_PACKET, options]));
         INPUT_PACKET_OLD = JSON.parse(JSON.stringify(INPUT_PACKET));
         lastInputSent = now;
@@ -362,6 +325,10 @@ window.onload = function() {
 }
 
 // Keydown listener
+function setKeyboardControl(control, pressed) {
+    NxbtKeyboard.setControl(INPUT_PACKET, control, pressed);
+}
+
 function globalKeydownHandler(evt) {
     if (INPUT_DEVICE !== InputDevice.KEYBOARD) {
         return
@@ -375,13 +342,7 @@ function globalKeydownHandler(evt) {
 
     if (Object.keys(KEYMAP).indexOf(JSON.stringify(evt.keyCode)) > -1) {
         control = KEYMAP[evt.keyCode];
-        if (LEFT_STICK.indexOf(control) > -1) {
-            INPUT_PACKET["L_STICK"][control] = true;
-        } else if (RIGHT_STICK.indexOf(control) > -1) {
-            INPUT_PACKET["R_STICK"][control] = true;
-        } else {
-            INPUT_PACKET[control] = true;
-        }
+        setKeyboardControl(control, true);
     }
 }
 document.onkeydown = globalKeydownHandler;
@@ -396,13 +357,7 @@ function globalKeyupHandler(evt) {
 
     if (Object.keys(KEYMAP).indexOf(JSON.stringify(evt.keyCode)) > -1) {
         control = KEYMAP[evt.keyCode];
-        if (LEFT_STICK.indexOf(control) > -1) {
-            INPUT_PACKET["L_STICK"][control] = false;
-        } else if (RIGHT_STICK.indexOf(control) > -1) {
-            INPUT_PACKET["R_STICK"][control] = false;
-        } else {
-            INPUT_PACKET[control] = false;
-        }
+        setKeyboardControl(control, false);
     }
 }
 document.onkeyup = globalKeyupHandler;
@@ -513,6 +468,7 @@ function createProController(backend = "pro") {
     HTML_LOADER_TEXT.textContent = "connecting";
     ACTIVE_BACKEND = backend;
     const joycon = backend === "joycon2_right";
+    document.body.classList.toggle("joycon-right-mode", joycon);
     document.getElementById("joycon-options").classList.toggle("hidden", !joycon);
     document.getElementById("backend-name").textContent = joycon ? "Joy-Con 2 (R)" : "Pro Controller";
     document.getElementById("procon-underlay").parentElement.classList.toggle("hidden", joycon);
@@ -541,7 +497,14 @@ function changeBackend() {
 
 function tapJoyCon(button) {
     sequenceRunning = true;
-    socket.emit('joycon2_button', button);
+    socket.emit('joycon2_button', {button, layout: document.getElementById("joycon-face-layout").value});
+}
+
+function tapStick(x, y) {
+    sequenceRunning = true;
+    const steps = [{x, y, duration: 0.15,
+        orientation: document.getElementById("joycon-orientation").value}];
+    socket.emit('macro', JSON.stringify([NXBT_CONTROLLER_INDEX, JSON.stringify(steps)]));
 }
 
 function registerJoyCon() {

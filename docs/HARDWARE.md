@@ -146,3 +146,14 @@ After reconnecting with the grace period, automatic SL+SR was followed by a new
 player-LED command and the capture showed the registered right half. Browser
 keyboard A also exited the controller prompt. A temporary mouse-to-stick prototype
 was removed at the owner's request. Native optical-mouse reports remain future work.
+
+## Full Right-Half Button Diagnostic
+
+The console's Test Controller Buttons screen displayed A, B, X, Y, R, ZR, PLUS,
+R-stick click, SL and SR after ten isolated bounded pulses. HOME returned from
+the later calibration warning to HOME. Screen-left/right/up/down navigation was
+observed, with neutral release after each pulse. C is excluded by Nintendo's
+diagnostic screen and was not opened; its report bit and input routes are tested
+in software only. The console refused stick calibration for a horizontal Joy-Con;
+no recalibration, grip change or settings change was performed. See the detailed
+[input matrix](INPUT-TESTS.md) and captured diagnostic result.

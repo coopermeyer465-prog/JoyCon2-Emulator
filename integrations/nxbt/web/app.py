@@ -5,7 +5,7 @@ import time
 from socket import gethostname
 
 from .cert import generate_cert
-from .joycon2_bridge import JoyCon2Bridge, input_step
+from .joycon2_bridge import JoyCon2Bridge, input_step, RIGHT_BUTTON_NAMES, map_button
 from ..nxbt import Nxbt, PRO_CONTROLLER
 from flask import Flask, render_template, request
 from flask_socketio import SocketIO, emit
@@ -145,7 +145,8 @@ def handle_input(message):
             raise ValueError("This session does not own the controller")
         if index == JOYCON2_INDEX:
             options = message[2] if len(message) > 2 else {}
-            value = input_step(packet, options.get("stick", "left"), options.get("orientation", "sideways-right"))
+            value = input_step(packet, options.get("stick", "left"), options.get("orientation", "sideways-right"),
+                               options.get("button_layout", "printed"))
             joycon2.request({"op": "set", "state": value})
         else:
             nxbt.set_controller_input(index, packet)
@@ -164,9 +165,13 @@ def handle_joycon2_join():
 
 @sio.on('joycon2_button')
 def handle_joycon2_button(button):
-    if owns(JOYCON2_INDEX) and button in ("SL", "SR", "C"):
+    layout = "printed"
+    if isinstance(button, dict):
+        layout, button = button.get("layout", "printed"), button.get("button")
+    if owns(JOYCON2_INDEX) and button in RIGHT_BUTTON_NAMES:
         try:
-            joycon2.request({"op": "set", "state": {"buttons": [button], "duration": 0.1}})
+            joycon2.request({"op": "set", "state": {"buttons": [map_button(button, layout)],
+                "duration": 0.05 if button == "HOME" else 0.1}})
         except (OSError, ValueError) as error:
             emit('error', str(error))
 

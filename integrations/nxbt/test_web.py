@@ -63,12 +63,12 @@ class WebTests(unittest.TestCase):
 
     def test_allowlisted_extra_buttons_and_stop_ack(self):
         self.create()
-        for button in ("SL", "SR", "C"):
+        for button in web.RIGHT_BUTTON_NAMES:
             self.owner.emit("joycon2_button", button)
             web.joycon2.request.assert_called_with({"op": "set", "state": {
-                "buttons": [button], "duration": 0.1}})
+                "buttons": [button], "duration": 0.05 if button == "HOME" else 0.1}})
         web.joycon2.request.reset_mock()
-        self.owner.emit("joycon2_button", "A")
+        self.owner.emit("joycon2_button", "ZL")
         self.other.emit("joycon2_button", "C")
         web.joycon2.request.assert_not_called()
         result = self.owner.emit("shutdown", -1, callback=True)
@@ -84,6 +84,13 @@ class WebTests(unittest.TestCase):
         web.nxbt.create_controller.assert_called_once_with(web.PRO_CONTROLLER,
             reconnect_address=["AA:BB:CC:DD:EE:FF"])
         web.joycon2.stop.assert_called_once()
+
+    def test_explicit_sideways_face_layout_for_taps_and_live_input(self):
+        self.create()
+        self.owner.emit("joycon2_button", {"button": "A", "layout": "sideways-right"})
+        web.joycon2.request.assert_called_with({"op": "set", "state": {"buttons": ["X"], "duration": 0.1}})
+        self.owner.emit("input", json.dumps([-1, {"B": True}, {"button_layout": "sideways-right"}]))
+        self.assertEqual(web.joycon2.request.call_args.args[0]["state"]["buttons"], ["A"])
 
     def test_sequence_preserves_json_and_disconnect_stops_backend(self):
         self.create()

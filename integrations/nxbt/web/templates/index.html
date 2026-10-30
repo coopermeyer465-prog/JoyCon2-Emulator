@@ -89,9 +89,30 @@
                         <option value="raw">Upright (raw axes)</option>
                     </select></label>
                     <button type="button" onclick="registerJoyCon()">SL + SR</button>
-                    <button type="button" onclick="tapJoyCon('SL')">SL</button>
-                    <button type="button" onclick="tapJoyCon('SR')">SR</button>
-                    <button type="button" onclick="tapJoyCon('C')">C / GameChat</button>
+                    <label>Face buttons <select id="joycon-face-layout" onchange="resetInput()">
+                        <option value="printed">Printed Joy-Con labels</option>
+                        <option value="sideways-right">Sideways A/B/X/Y</option>
+                    </select></label>
+                    <div id="joycon-button-pad">
+                        <button type="button" title="Tap A" onclick="tapJoyCon('A')">A</button>
+                        <button type="button" title="Tap B" onclick="tapJoyCon('B')">B</button>
+                        <button type="button" title="Tap X" onclick="tapJoyCon('X')">X</button>
+                        <button type="button" title="Tap Y" onclick="tapJoyCon('Y')">Y</button>
+                        <button type="button" title="Tap R" onclick="tapJoyCon('R')">R</button>
+                        <button type="button" title="Tap ZR" onclick="tapJoyCon('ZR')">ZR</button>
+                        <button type="button" title="Tap Plus" onclick="tapJoyCon('PLUS')">+</button>
+                        <button type="button" title="Tap Stick Press" onclick="tapJoyCon('STICK')">Stick Press</button>
+                        <button type="button" title="Tap HOME" onclick="tapJoyCon('HOME')">HOME</button>
+                        <button type="button" title="Tap C / GameChat" onclick="tapJoyCon('C')">C / GameChat</button>
+                        <button type="button" title="Tap SL" onclick="tapJoyCon('SL')">SL</button>
+                        <button type="button" title="Tap SR" onclick="tapJoyCon('SR')">SR</button>
+                    </div>
+                    <div id="joycon-stick-pad">
+                        <button type="button" title="Stick Left" aria-label="Stick Left" onclick="tapStick(-0.75,0)">&#8592;</button>
+                        <button type="button" title="Stick Up" aria-label="Stick Up" onclick="tapStick(0,0.75)">&#8593;</button>
+                        <button type="button" title="Stick Down" aria-label="Stick Down" onclick="tapStick(0,-0.75)">&#8595;</button>
+                        <button type="button" title="Stick Right" aria-label="Stick Right" onclick="tapStick(0.75,0)">&#8594;</button>
+                    </div>
                 </div>
                 <div id="controller-underlay-container">
                     <div class="controller-display hidden">
@@ -176,15 +197,15 @@
                                     <td>Right Stick Press</td>
                                     <td>Y</td>
                                 </tr>
-                                <tr>
+                                <tr data-pro-only>
                                     <td>Dpad</td>
                                     <td>G V B N</td>
                                 </tr>
-                                <tr>
+                                <tr data-pro-only>
                                     <td>Home & Capture</td>
                                     <td>[ & ]</td>
                                 </tr>
-                                <tr>
+                                <tr data-pro-only>
                                     <td>Plus & Minus</td>
                                     <td>6 & 7</td>
                                 </tr>
@@ -192,7 +213,7 @@
                                     <td>A B X Y</td>
                                     <td>L K I J</td>
                                 </tr>
-                                <tr>
+                                <tr data-pro-only>
                                     <td>L & ZL</td>
                                     <td>1 & 2</td>
                                 </tr>
@@ -200,14 +221,16 @@
                                     <td>R & ZR</td>
                                     <td>8 & 9</td>
                                 </tr>
-                                <tr>
+                                <tr data-right-only>
                                     <td>Right SL / SR</td>
                                     <td>- / =</td>
                                 </tr>
-                                <tr>
+                                <tr data-right-only>
                                     <td>C / GameChat</td>
                                     <td>0</td>
                                 </tr>
+                                <tr data-right-only><td>HOME</td><td>[</td></tr>
+                                <tr data-right-only><td>Plus</td><td>6</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -256,6 +279,7 @@
 
         <script src="js/socket.io.js"></script>
         <script src="js/lic2-hid.js"></script>
+        <script src="js/keyboard-input.js"></script>
         <script src="js/main.js"></script>
     </body>
 </html>

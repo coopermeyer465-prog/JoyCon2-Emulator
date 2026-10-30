@@ -22,6 +22,8 @@ Bluetooth captures, or pairing keys are distributed.
 - [Sleep wake tools](integrations/wake/README.md): the tested RTL8761BU wake
   prototype, using your private capture and restoring the adapter afterward.
 - [Hardware evidence](docs/HARDWARE.md): successful tests, regressions and limits.
+- [Input test matrix](docs/INPUT-TESTS.md): every supported button, direction and
+  the distinction between software checks and console-visible results.
 - [Changelog](CHANGELOG.md): implementation milestones and verification.
 
 The combined web integration is newly implemented and separately tested; the

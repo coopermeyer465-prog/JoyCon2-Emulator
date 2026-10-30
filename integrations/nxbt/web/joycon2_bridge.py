@@ -10,11 +10,22 @@ import subprocess
 import time
 
 
-def input_step(packet, stick="left", orientation="sideways-right"):
+RIGHT_BUTTON_NAMES = ("A", "B", "X", "Y", "R", "ZR", "PLUS", "STICK", "HOME", "C", "SL", "SR")
+
+
+def map_button(button, layout="printed"):
+    if layout not in ("printed", "sideways-right"):
+        raise ValueError("Invalid face-button layout")
+    return {"A": "X", "B": "A", "X": "Y", "Y": "B"}.get(button, button) if layout == "sideways-right" else button
+
+
+def input_step(packet, stick="left", orientation="sideways-right", button_layout="printed"):
     if not isinstance(packet, dict) or stick not in ("left", "right"):
         raise ValueError("Invalid input packet or stick selection")
     if orientation not in ("raw", "sideways-right"):
         raise ValueError("Invalid orientation")
+    if button_layout not in ("printed", "sideways-right"):
+        raise ValueError("Invalid face-button layout")
     source = packet.get("L_STICK" if stick == "left" else "R_STICK", {})
     if not isinstance(source, dict):
         raise ValueError("Invalid stick")
@@ -31,6 +42,7 @@ def input_step(packet, stick="left", orientation="sideways-right"):
     for source_name, target in (("JCR_SL", "SL"), ("JCR_SR", "SR")):
         if packet.get(source_name) is True:
             buttons.append(target)
+    buttons = [map_button(button, button_layout) for button in buttons]
     return {"buttons": buttons, "x": axes[0], "y": axes[1],
             "orientation": orientation, "duration": 0.45}
 

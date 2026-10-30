@@ -2,6 +2,24 @@
 
 ## 2026-10-30
 
+### Input Diagnostics And Mapping
+
+- Verified A/B/X/Y, R/ZR, PLUS, stick click and SL/SR in the Switch's own
+  controller-button test, observed through Elgato. HOME and four-direction menu
+  navigation were also checked; C/GameChat was deliberately not opened.
+- Added an on-screen tap for every right-half button and four 150 ms direction
+  controls. Fixed keyboard stick clicks and the reversed R/ZR key mapping.
+- Added an independent printed/sideways face-button selector. Printed X confirms
+  and printed A goes Back when the half is sideways; conventional sideways A/B
+  can now be selected without changing raw CLI/JSON button names.
+- Hid Pro-only keyboard rows in right-half mode and added browser keyboard
+  regression tests to CI. Published the input matrix and console test screenshot.
+- Verification: 59 Python tests, seven mocked web tests and two JavaScript tests
+  passed. The console blocks stick calibration while held horizontally, so full
+  analog-range/diagonal behavior remains software-tested, not visually certified.
+
+### Combined Interface
+
 - Published a combined NXBT web overlay with Pro Controller / Joy-Con 2 (R)
   backend selection, isolated BLE process, session ownership and adapter handoff.
 - Preserved the existing keyboard, browser Gamepad and Lic2 WebHID input paths.

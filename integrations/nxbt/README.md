@@ -57,6 +57,13 @@ environment. It stops BlueZ while active and restores BlueZ when stopped.
 Joy-Con mode has one physical right stick. Select whether the browser's left
 stick/WASD or right stick/arrows drives it. Choose sideways screen directions or
 raw axes. Face buttons, R/ZR, PLUS, HOME and the selected stick press are forwarded.
+Every supported right-half button has an on-screen tap control, including stick
+click, plus four directional stick controls. Keyboard T/Y correctly press the
+selected stick; 8/9 are R/ZR. Face-button layout is a separate selector: printed
+labels preserve physical names, while Sideways A/B/X/Y maps logical A/B/X/Y to
+physical X/A/Y/B so sideways menu confirm/back can use conventional A/B. The
+printed-label mode remains the default. JSON sequences and CLI commands always
+name physical buttons, independently of this browser mapping.
 Left-half-only buttons are ignored, not advertised as supported. The web service
 uses `--auto-join`: after encryption, subscription and feature initialization, it
 schedules a two-second initialization grace, then sends SL+SR for 250 ms once per

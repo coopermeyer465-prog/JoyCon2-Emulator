@@ -77,6 +77,27 @@ footer {
     max-width: 100%;
 }
 
+#joycon-button-pad, #joycon-stick-pad {
+    display: grid;
+    width: 100%;
+    gap: 8px;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+#joycon-stick-pad { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.joycon-right-mode [data-pro-only] { display: none; }
+body:not(.joycon-right-mode) [data-right-only] { display: none; }
+#joycon-button-pad button, #joycon-stick-pad button {
+    width: 100%;
+    min-height: 44px;
+    padding: 8px;
+    overflow-wrap: anywhere;
+}
+
+@media screen and (max-width: 600px) {
+    #joycon-button-pad { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
 #joyconr-underlay {
     height: 240px;
     object-fit: contain;
