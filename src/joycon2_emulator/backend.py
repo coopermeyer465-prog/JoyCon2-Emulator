@@ -164,7 +164,7 @@ async def serve(address, transport, bond_file, seconds, calibration=None, test_b
                     buttons = pulse.at(time.monotonic() - stream_start) if pulse else ()
                     if buttons and not pulse_sent:
                         pulse_sent = True
-                        LOG.info("Sending opt-in %s test pulse for 250 ms", test_button)
+                        LOG.info("Sending opt-in %s test pulse for %d ms", test_button, pulse.duration_ms)
                     await asyncio.wait_for(device.notify_subscribers(
                         inputs, right_report(counter, buttons, x=center_x, y=center_y)), 2)
                     queued_reports += 1

@@ -84,3 +84,8 @@ The link used 15 ms for that registration run; earlier calibrated/encrypted runs
 used 5 ms. Both intervals have been observed on this adapter, but sustained gameplay,
 input latency, additional buttons, full stick range and a second Joy-Con remain
 untested. Thirty-seven unit tests pass, including bounded test-pulse release.
+
+The subsequent HOME test had a console-visible effect, but the user clarified
+that it opened the hold/Quick Settings menu rather than going HOME. The HOME
+pulse is now scheduled for 50 ms instead of 250 ms, with explicit release tests;
+short-tap behavior on the console is not yet verified. Join remains 250 ms.

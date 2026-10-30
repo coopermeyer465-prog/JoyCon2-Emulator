@@ -8,6 +8,7 @@ class ButtonPulse:
         if name not in self.OPTIONS:
             raise ValueError("Unsupported test pulse")
         self.buttons = self.OPTIONS[name]
+        self.duration_ms = 50 if name == "home" else 250
 
     def at(self, seconds):
-        return self.buttons if 2.0 <= seconds < 2.25 else ()
+        return self.buttons if 2.0 <= seconds < 2.0 + self.duration_ms / 1000 else ()

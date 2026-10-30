@@ -27,7 +27,7 @@ def main():
     lab.add_argument("--seconds", type=int, default=60)
     lab.add_argument("--calibration", type=Path, help="Private allowlisted factory-data capture")
     lab.add_argument("--test-button", choices=("join", "home", "a", "b"),
-                     help="Send one 250 ms pulse after subscribed input starts; join means SL+SR")
+                     help="Send one pulse after subscribed input starts (HOME 50 ms, others 250 ms); join means SL+SR")
     capture = commands.add_parser("capture-calibration", help="Read four factory blocks; no pairing/flash writes")
     capture.add_argument("--peer", required=True)
     capture.add_argument("--output", type=Path, default=Path(".state/factory-calibration.json"))

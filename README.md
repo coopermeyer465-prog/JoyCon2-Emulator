@@ -25,7 +25,7 @@ Bluetooth captures, or pairing keys are distributed.
 | Console initialization, calibration/flash responses | Generated metadata, allowlisted private calibration import, erased user-calibration slots; incomplete overall |
 | Bond reload and LTK interoperability | Implemented per-address keys; encrypted reconnect observed after process restart; long-term reliability untested |
 | Player LEDs and vibration requests | Virtual state/sink only, no physical output |
-| Opt-in button smoke tests | Bounded 250 ms join/HOME/A/B pulses; only join console-confirmed so far |
+| Opt-in button smoke tests | HOME 50 ms, join/A/B 250 ms; join confirmed; old HOME pulse opened Quick Settings |
 | Live gamepad/WebHID relay, left/right combined controller | Not implemented |
 | Gyro, mouse, physical rumble, NFC, firmware updates | Not implemented |
 
@@ -89,7 +89,9 @@ By default the lab sends neutral reports only after the console subscribes and
 enables the implemented input features. To send one explicit SL+SR registration
 pulse, add `--test-button join` to `serve`. Alternatives are `home`, `a` and `b`.
 The pulse starts two seconds after the subscribed report stream starts, lasts
-250 ms, then releases. Keep the console on the appropriate screen before starting.
+50 ms for HOME or 250 ms for join/A/B, then releases. The earlier 250 ms HOME
+test was interpreted as a hold and opened Quick Settings; the shorter timing
+needs another physical-console test. Keep the console on the appropriate screen before starting.
 This is a diagnostic input test, not the live Lic2/WebHID relay.
 
 ## Private Calibration Capture
