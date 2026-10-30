@@ -12,11 +12,15 @@ web = importlib.import_module("nxbt.web.app")
 class WebTests(unittest.TestCase):
     def setUp(self):
         self.original = web.nxbt, web.joycon2, web.emit
+        self.background = web.sio.start_background_task
+        web.sio.start_background_task = Mock()
         # The installed Flask-SocketIO test client's outgoing hook predates its
         # python-socketio dependency. Capture emits, retaining real event dispatch.
         web.emit = Mock()
         web.nxbt = None
         web.joycon2 = Mock()
+        web.joycon2.mouse_test_active = False
+        web.joycon2.generation = 1
         web.joycon2.status.return_value = {"state": "connected", "errors": []}
         web.joycon2_owner = None
         web.USER_INFO.clear()
@@ -27,6 +31,7 @@ class WebTests(unittest.TestCase):
         self.owner.disconnect()
         self.other.disconnect()
         web.nxbt, web.joycon2, web.emit = self.original
+        web.sio.start_background_task = self.background
         web.joycon2_owner = None
 
     def create(self):
@@ -100,6 +105,40 @@ class WebTests(unittest.TestCase):
         self.owner.disconnect()
         web.joycon2.stop.assert_called_once()
         self.owner = web.sio.test_client(web.app)
+
+    def test_native_mouse_ownership_validation_and_normal_input_suppression(self):
+        self.create()
+        self.assertFalse(self.other.emit("joycon2_mouse_test", callback=True)["ok"])
+        self.assertTrue(self.owner.emit("joycon2_mouse_test", callback=True)["ok"])
+        web.joycon2.start.assert_called_with(native_mouse=True)
+        web.sio.start_background_task.assert_called_once()
+        web.joycon2.mouse_test_active = True
+        web.joycon2.request.reset_mock()
+        self.owner.emit("input", json.dumps([-1, {"HOME": True}]))
+        self.other.emit("joycon2_mouse", {"dx": 10}, callback=True)
+        for value in ({"dx": True}, {"dx": 2048}, {"dy": 1.5}, {"dx": 1, "lifted": True},
+                      {"surface": 0}, None):
+            self.assertFalse(self.owner.emit("joycon2_mouse", value, callback=True)["ok"])
+        web.joycon2.request.assert_not_called()
+        self.assertTrue(self.owner.emit("joycon2_mouse", {"dx": 12, "dy": -3}, callback=True)["ok"])
+        web.joycon2.request.assert_called_with({"op": "mouse", "dx": 12, "dy": -3, "surface": 50})
+        self.owner.emit("joycon2_mouse", {"lifted": True}, callback=True)
+        web.joycon2.request.assert_called_with({"op": "mouse", "dx": 0, "dy": 0, "lifted": True})
+        self.assertFalse(self.other.emit("joycon2_mouse_stop", callback=True)["ok"])
+        self.assertTrue(self.owner.emit("joycon2_mouse_stop", callback=True)["ok"])
+        web.joycon2.start.assert_called_with()
+
+    def test_native_expiry_restores_only_the_same_owner_and_generation(self):
+        self.create()
+        owner = web.joycon2_owner
+        web.joycon2.active.return_value = False
+        web.joycon2.start.reset_mock()
+        web.restore_after_mouse(owner, 1)
+        web.joycon2.start.assert_called_once_with()
+        web.joycon2.start.reset_mock()
+        web.joycon2.generation = 2
+        web.restore_after_mouse(owner, 1)
+        web.joycon2.start.assert_not_called()
 
 
 if __name__ == "__main__":

@@ -15,9 +15,10 @@ Bluetooth captures, or pairing keys are distributed.
 
 - [Combined NXBT web interface](integrations/nxbt/README.md): choose Classic
   Pro Controller or BLE Joy-Con 2 (R), with keyboard, Gamepad and Lic2 WebHID
-  input, automatic SL+SR registration and C control. Native optical mouse is
-  not exposed in the web UI; the experimental CLI report path is not usable yet.
-  Mouse-to-stick mode is not included.
+  input, automatic SL+SR registration and C control. The Mouse surface maps to
+  either Pro stick, the right Joy-Con stick, or a bounded experimental native
+  cursor session using private recorded motion. Generated mouse-only reports
+  still do not work independently.
 - [Command control](#command-control): timed buttons, calibrated stick input and
   JSON sequences, independent of the browser.
 - [Sleep wake tools](integrations/wake/README.md): the tested RTL8761BU wake
@@ -30,7 +31,8 @@ Bluetooth captures, or pairing keys are distributed.
 The combined web integration is newly implemented and separately tested; the
 physical input confirmations above were obtained through the command backend.
 Automatic registration and browser keyboard input were subsequently checked
-through the owner's capture card. Native optical-mouse mode is not included.
+through the owner's capture card. Native mouse now has a separate bounded
+recorded-motion test mode; this is not generated/live gyro support.
 
 ![Combined NXBT and Joy-Con 2 interface](docs/images/nxbt-joycon2.png)
 

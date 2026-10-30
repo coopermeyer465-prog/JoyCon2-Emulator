@@ -53,6 +53,16 @@ class JoyCon2Bridge:
     def __init__(self, config_path=None):
         self.config_path = Path(config_path or os.environ.get("NXBT_JOYCON2_CONFIG", "/etc/nxbt-joycon2.json"))
         self.config = None
+        self.mouse_test_active = False
+        self.mouse_test_started = 0
+        self.generation = 0
+
+    def mouse_capture(self):
+        config = self.config or self.load()
+        return Path(config.get("mouse_capture", str(Path(config["project"]) / ".state/mouse-motion.json")))
+
+    def active(self):
+        return self.run("systemctl", "is-active", "--quiet", self.UNIT, check=False).returncode == 0
 
     def load(self):
         config = json.loads(self.config_path.read_text())
@@ -61,6 +71,9 @@ class JoyCon2Bridge:
                 raise ValueError("Invalid Joy-Con 2 configuration")
         if not Path(config["project"]).is_absolute() or not Path(config["python"]).is_absolute():
             raise ValueError("Project and Python paths must be absolute")
+        if "mouse_capture" in config and (not isinstance(config["mouse_capture"], str)
+                                           or not Path(config["mouse_capture"]).is_absolute()):
+            raise ValueError("Mouse capture must be an absolute private file path")
         if not re.fullmatch(r"(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}", config["address"]):
             raise ValueError("Invalid adapter address")
         self.config = config
@@ -85,26 +98,40 @@ class JoyCon2Bridge:
             raise ValueError(result.get("error", "Joy-Con 2 request failed"))
         return result
 
-    def start(self):
+    def start(self, native_mouse=False):
         config = self.load()
         project = Path(config["project"])
         for filename in ("bond.json", "factory-calibration.json"):
             if not (project / ".state" / filename).is_file():
                 raise ValueError("Joy-Con 2 needs existing private bond and calibration files")
+        capture = self.mouse_capture() if native_mouse else None
+        if capture is not None and (not capture.is_absolute() or not capture.is_file()):
+            raise ValueError("Native cursor needs a private compact motion capture configured on this computer")
         self.run("systemctl", "stop", "joycon2-command.service", check=False)
-        if self.run("systemctl", "is-active", "--quiet", self.UNIT, check=False).returncode == 0:
+        if self.active() and self.mouse_test_active == native_mouse:
             return self.request({"op": "status"})
+        self.run("systemctl", "stop", self.UNIT, check=False)
+        self.generation += 1
+        self.mouse_test_active = native_mouse
+        self.mouse_test_started = time.monotonic()
         self.run("systemctl", "stop", "bluetooth")
         try:
+            self.run("hciconfig", "hci0", "reset")
             self.run("hciconfig", "hci0", "down")
+            # Let the previous HCI owner and kernel command queue settle.
+            time.sleep(0.75)
+            options = (["--seconds", "30", "--experimental-sensor-replay", str(capture), "--replay-command-mouse"]
+                       if native_mouse else ["--seconds", "0", "--auto-join"])
+            runtime = ["--property=RuntimeMaxSec=40"] if native_mouse else []
             self.run("systemd-run", "--quiet", "--collect", "--unit=" + self.UNIT,
                      "--property=WorkingDirectory=" + str(project),
                      "--property=ExecStopPost=/usr/bin/systemctl start bluetooth",
                      "--property=KillSignal=SIGINT", "--property=TimeoutStopSec=5",
+                     *runtime,
                      "/usr/bin/env", "PYTHONPATH=" + config["pythonpath"] + ":" + str(project / "src"),
                      config["python"], "-m", "joycon2_emulator.cli", "serve", "--experimental",
                      "--address", config["address"], "--calibration", ".state/factory-calibration.json",
-                     "--control-socket", ".state/control.sock", "--seconds", "0", "--auto-join")
+                     "--control-socket", ".state/control.sock", *options)
             for _ in range(40):
                 try:
                     return self.request({"op": "status"})
@@ -116,11 +143,22 @@ class JoyCon2Bridge:
             raise
 
     def stop(self):
+        self.generation += 1
+        self.mouse_test_active = False
         self.run("systemctl", "stop", "joycon2-command.service", check=False)
         self.run("systemctl", "stop", self.UNIT, check=False)
         self.run("systemctl", "start", "bluetooth")
 
     def status(self):
-        result = self.request({"op": "status"})
+        try:
+            result = self.request({"op": "status"})
+        except (OSError, ValueError):
+            if not self.mouse_test_active:
+                raise
+            result = {"ready": False}
         return {"state": "connected" if result["ready"] else "connecting",
-                "type": "joycon2_right", "errors": []}
+                "type": "joycon2_right", "errors": [],
+                "native_available": self.mouse_capture().is_file(),
+                "native_test": self.mouse_test_active,
+                "native_remaining": max(0, 30 - int(time.monotonic() - self.mouse_test_started)),
+                "mouse_ready": bool(self.mouse_test_active and result.get("ready") and result.get("mouse_enabled"))}

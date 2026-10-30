@@ -1,6 +1,8 @@
 import importlib.util
 from html.parser import HTMLParser
 import math
+import json
+import tempfile
 from pathlib import Path
 import unittest
 from unittest.mock import Mock
@@ -60,14 +62,17 @@ class BridgeTests(unittest.TestCase):
                     state.execute({"op": "set", "state": value}, 0)
                     self.assertEqual(state.snapshot(0.1), ((), x / 100, y / 100))
 
-    def test_overlay_has_no_mouse_mode(self):
+    def test_overlay_mouse_is_separate_and_off_by_default(self):
         root = FILE.parent
         javascript = (root / "static/js/main.js").read_text()
         template = (root / "templates/index.html").read_text()
-        for marker in ("InputDevice.MOUSE", "captureMouse", "pointerlockchange", "mousePadActive"):
-            self.assertNotIn(marker, javascript)
-        self.assertNotIn('value="mouse"', template)
-        self.assertNotIn('id="mouse-settings"', template)
+        self.assertNotIn("InputDevice.MOUSE", javascript)
+        self.assertIn('id="mouse-surface"', template)
+        self.assertIn('<option value="off">Off</option>', template)
+        self.assertIn('value="native" disabled', template)
+        self.assertIn('value="left"', template)
+        self.assertIn('value="right"', template)
+        self.assertIn('nativeMouseRequested', javascript)
 
     def test_packet_mapping_and_lease(self):
         value = bridge.input_step({"A": True, "B": False, "L": True, "ZL": True,
@@ -102,7 +107,38 @@ class BridgeTests(unittest.TestCase):
 
     def test_backend_readiness_is_not_just_connection(self):
         instance = bridge.JoyCon2Bridge()
+        instance.config = {"project": "/nonexistent-private-project"}
         instance.request = Mock(return_value={"ready": False, "connected": True})
         self.assertEqual(instance.status()["state"], "connecting")
         instance.request.return_value["ready"] = True
         self.assertEqual(instance.status()["state"], "connected")
+
+    def test_native_web_session_is_bounded_and_separate_from_auto_join(self):
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            (project / ".state").mkdir()
+            for name in ("bond.json", "factory-calibration.json", "mouse-motion.json"):
+                (project / ".state" / name).write_text("{}")
+            config = {"project": directory, "python": "/usr/bin/python3", "pythonpath": "/deps",
+                      "address": "00:11:22:33:44:55"}
+            path = project / "config.json"
+            path.write_text(json.dumps(config))
+            instance = bridge.JoyCon2Bridge(path)
+            instance.active = Mock(return_value=False)
+            instance.run = Mock()
+            instance.request = Mock(return_value={"ready": False})
+            instance.start(native_mouse=True)
+            command = next(call.args for call in instance.run.call_args_list if call.args[0] == "systemd-run")
+            self.assertIn("--property=RuntimeMaxSec=40", command)
+            self.assertIn("--replay-command-mouse", command)
+            self.assertEqual(command[command.index("--seconds") + 1], "30")
+            self.assertNotIn("--auto-join", command)
+            self.assertTrue(instance.mouse_test_active)
+            generation = instance.generation
+            instance.run.reset_mock()
+            instance.start()
+            command = next(call.args for call in instance.run.call_args_list if call.args[0] == "systemd-run")
+            self.assertIn("--auto-join", command)
+            self.assertNotIn("--experimental-sensor-replay", command)
+            self.assertFalse(instance.mouse_test_active)
+            self.assertGreater(instance.generation, generation)

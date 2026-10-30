@@ -151,6 +151,22 @@
                     </div>
                 </div>
                 <div id="controller-input" class="controller-config-subsection">
+                    <h2 class="surface-lighter">Mouse</h2>
+                    <div id="mouse-toolbar">
+                        <label>Target <select id="mouse-target">
+                            <option value="off">Off</option>
+                            <option value="native" disabled>Switch 2 cursor (30s test)</option>
+                            <option value="left">Left stick</option>
+                            <option value="right">Right stick</option>
+                        </select></label>
+                        <label>Sensitivity <input id="mouse-gain" type="range" min="0.25" max="4" step="0.25" value="1"></label>
+                        <output id="mouse-gain-value">1x</output>
+                    </div>
+                    <div id="mouse-surface" tabindex="0" aria-label="Mouse input surface">
+                        <span id="mouse-reticle" aria-hidden="true"></span>
+                        <button id="mouse-capture" type="button" disabled>Capture Mouse</button>
+                    </div>
+                    <output id="mouse-status" role="status">Off</output>
                     <h2 class="surface-lighter">Input Device</h2>
                     <select id="input-device" name="Select an Input Device" onchange="changeInput(event)">
                         <option value="keyboard">Keyboard</option>
@@ -280,6 +296,7 @@
         <script src="js/socket.io.js"></script>
         <script src="js/lic2-hid.js"></script>
         <script src="js/keyboard-input.js"></script>
+        <script src="js/mouse-input.js"></script>
         <script src="js/main.js"></script>
     </body>
 </html>

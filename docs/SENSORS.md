@@ -7,8 +7,9 @@
   but the generated mouse-only path has not produced a cursor. A bounded private
   recorded-motion diagnostic did produce a cursor, including with command-driven
   mouse fields. This is not standalone mouse emulation yet.
-- Desktop pointer capture/browser mouse mapping: not implemented. The removed
-  mouse-to-stick mode remains removed.
+- Desktop pointer capture/browser mapping: the NXBT Mouse surface supports stick
+  targets and a bounded native cursor diagnostic using private recorded motion.
+  See [web mouse controls](../integrations/nxbt/README.md#mouse-surface).
 - Gyroscope/accelerometer: offline `common_motion()` encoder only, for the
   documented 18-byte IMU block in common report `0x05`. It is not connected to
   the BLE stream and is not a usable console gyro input.
@@ -124,8 +125,9 @@ selects the failed stationary-baseline experiment. It does not claim that the
 retained opaque motion block is valid generated orientation data. Both modes
 keep controls neutral and reject button/stick commands, auto-join and diagnostic
 button pulses. Feature configuration commands not implemented by the backend
-remain rejected, not silently acknowledged. Neither mode is enabled by `j2 start`,
-the desktop launchers or the web UI. Keep captures private; no sensor arrays
+remain rejected, not silently acknowledged. Neither mode is enabled by default
+by `j2 start` or the desktop launchers. The web UI can explicitly select the
+bounded command-mouse/moving-motion diagnostic. Keep captures private; no sensor arrays
 or keys are distributed with this code.
 
 ## Grip Test Result

@@ -2,6 +2,24 @@
 
 ## 2026-10-30
 
+### Browser Mouse Surface
+
+- Added an independent mouse surface, target selector and sensitivity slider,
+  with pointer lock and drag fallback. Mouse-to-stick targets self-center and
+  release on blur, hide, disconnect and capture exit.
+- Pro mode exposes either stick; the single right Joy-Con exposes only its own
+  stick. No left-half controls are invented.
+- Added an explicit 30-second native cursor test using the existing private
+  moving-motion diagnostic. Owner-only socket handlers validate/clamp deltas,
+  pause normal input during the test, and restore the normal controller afterward.
+- Fixed a rapid HCI ownership handoff failure with reset/settle before startup.
+  Browser verification confirmed native feature enablement, drag/release and
+  restoration of the normal auto-joining controller. Console cursor behavior
+  for this new browser surface still needs the owner's visual confirmation.
+- Verification: 93 core Python tests, 9 web-handler tests, keyboard mapping
+  regressions and pure mouse mapping checks pass. Browser stick drag produced
+  nonzero input reports followed by neutral release; a UI screenshot is included.
+
 ### Recorded-Motion Cursor Diagnostic
 
 - Added isolated, bounded private compact sensor playback. Captured buttons,

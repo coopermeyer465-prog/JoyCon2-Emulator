@@ -113,6 +113,15 @@ let INPUT_PACKET = {
 }
 let INPUT_PACKET_OLD = JSON.parse(JSON.stringify(INPUT_PACKET));
 const NEUTRAL_INPUT_PACKET = JSON.parse(JSON.stringify(INPUT_PACKET));
+const mouseInput = new NxbtMouse.MouseInput();
+const mouseTarget = document.getElementById("mouse-target");
+const mouseSurface = document.getElementById("mouse-surface");
+const mouseStatus = document.getElementById("mouse-status");
+const mouseCapture = document.getElementById("mouse-capture");
+let nativeMouseRequested = false;
+let nativeMouseSeen = false;
+let mouseBusy = false;
+let mouseDrag = null;
 let hidDevice = null;
 let hidLayouts = null;
 let hidState = null;
@@ -123,12 +132,20 @@ const hidStatus = document.getElementById("hid-status");
 hidButton.hidden = !navigator.hid;
 
 function resetInput() {
+    stopMouseCapture();
     INPUT_PACKET = JSON.parse(JSON.stringify(NEUTRAL_INPUT_PACKET));
     sendInputIfChanged();
 }
 
 function sendInputIfChanged() {
-    const changed = JSON.stringify(INPUT_PACKET) !== JSON.stringify(INPUT_PACKET_OLD);
+    if (nativeMouseRequested || STATE?.[NXBT_CONTROLLER_INDEX]?.native_test) return;
+    const outgoing = JSON.parse(JSON.stringify(INPUT_PACKET));
+    const mouseStick = mouseInput.stick(performance.now());
+    if (mouseStick) {
+        const stick = outgoing[mouseStick.target === "left" ? "L_STICK" : "R_STICK"];
+        stick.X_VALUE = mouseStick.x; stick.Y_VALUE = mouseStick.y;
+    }
+    const changed = JSON.stringify(outgoing) !== JSON.stringify(INPUT_PACKET_OLD);
     const joycon = ACTIVE_BACKEND === "joycon2_right";
     if (joycon && STATE?.[NXBT_CONTROLLER_INDEX]?.state !== ControllerState.CONNECTED) return;
     const now = performance.now();
@@ -136,11 +153,11 @@ function sendInputIfChanged() {
     if (joycon && now - lastInputSent < 33) return;
     if (NXBT_CONTROLLER_INDEX !== false && (changed || (joycon && !sequenceRunning && now - lastInputSent > 100))) {
         if (changed) sequenceRunning = false;
-        const options = {stick: document.getElementById("joycon-stick").value,
+        const options = {stick: mouseStick ? mouseStick.target : document.getElementById("joycon-stick").value,
             orientation: document.getElementById("joycon-orientation").value,
             button_layout: document.getElementById("joycon-face-layout").value};
-        socket.emit('input', JSON.stringify([NXBT_CONTROLLER_INDEX, INPUT_PACKET, options]));
-        INPUT_PACKET_OLD = JSON.parse(JSON.stringify(INPUT_PACKET));
+        socket.emit('input', JSON.stringify([NXBT_CONTROLLER_INDEX, outgoing, options]));
+        INPUT_PACKET_OLD = outgoing;
         lastInputSent = now;
     }
 }
@@ -149,6 +166,60 @@ document.addEventListener("visibilitychange", () => {
     if (document.hidden) resetInput();
 });
 window.addEventListener("blur", resetInput);
+
+function stopMouseCapture() {
+    const wasNative = mouseInput.active && mouseInput.mode === "native";
+    mouseInput.stop(); mouseDrag = null;
+    mouseSurface.classList.remove("capturing");
+    mouseCapture.textContent = "Capture Mouse";
+    mouseStatus.textContent = mouseTarget.value === "off" ? "Off" : "Stopped";
+    if (document.pointerLockElement === mouseSurface) document.exitPointerLock();
+    if (wasNative && nativeMouseRequested) socket.emit("joycon2_mouse", {dx: 0, dy: 0, lifted: true});
+}
+
+function updateMouseAvailability() {
+    const joycon = ACTIVE_BACKEND === "joycon2_right";
+    mouseCapture.disabled = mouseTarget.value === "off" || NXBT_CONTROLLER_INDEX === false;
+    mouseTarget.querySelector('[value="left"]').disabled = joycon;
+    mouseTarget.querySelector('[value="native"]').disabled = !joycon || !STATE?.[NXBT_CONTROLLER_INDEX]?.native_available;
+    if ((joycon && mouseTarget.value === "left") || (!joycon && mouseTarget.value === "native")) {
+        mouseTarget.value = "off"; stopMouseCapture();
+    }
+    for (const button of document.querySelectorAll("#joycon-button-pad button, #joycon-stick-pad button")) {
+        button.disabled = nativeMouseRequested;
+    }
+    document.querySelector('#joycon-options button[onclick="registerJoyCon()"]').disabled = nativeMouseRequested;
+    document.querySelector('#controller-commands button[onclick="sendMacro()"]').disabled = nativeMouseRequested;
+    HTML_MACRO_TEXT.disabled = nativeMouseRequested;
+}
+
+function beginMouseCapture() {
+    const mode = mouseTarget.value;
+    if (mode === "off" || NXBT_CONTROLLER_INDEX === false) return;
+    if (mouseInput.active) { stopMouseCapture(); sendInputIfChanged(); return; }
+    mouseInput.start(mode);
+    mouseSurface.classList.add("capturing");
+    mouseCapture.textContent = "Stop Capture";
+    mouseStatus.textContent = "Captured";
+    try {
+        const locking = mouseSurface.requestPointerLock?.();
+        locking?.catch(() => { mouseStatus.textContent = "Drag active"; });
+    } catch (_) {
+        mouseStatus.textContent = "Drag active";
+    }
+    if (mode === "native" && !nativeMouseRequested) {
+        nativeMouseRequested = true; nativeMouseSeen = false;
+        mouseStatus.textContent = "Connecting native cursor...";
+        updateMouseAvailability();
+        socket.emit("joycon2_mouse_test", result => {
+            if (!result?.ok) {
+                nativeMouseRequested = false; stopMouseCapture();
+                mouseStatus.textContent = result?.error || "Native cursor unavailable";
+                updateMouseAvailability();
+            }
+        });
+    }
+}
 
 function onHidInput(event) {
     const state = Lic2HID.decode(hidLayouts?.get(event.reportId), event.data);
@@ -276,6 +347,56 @@ let PRO_CONTROLLER_DISPLAY = {
 
 let socket = io();
 
+mouseTarget.addEventListener("change", () => {
+    stopMouseCapture();
+    if (nativeMouseRequested) socket.emit("joycon2_mouse_stop");
+    nativeMouseRequested = false; nativeMouseSeen = false;
+    resetInput(); updateMouseAvailability();
+});
+document.getElementById("mouse-gain").addEventListener("input", event => {
+    mouseInput.gain = Number(event.target.value);
+    document.getElementById("mouse-gain-value").textContent = `${mouseInput.gain}x`;
+});
+mouseCapture.addEventListener("click", beginMouseCapture);
+mouseSurface.addEventListener("pointerdown", event => {
+    if (event.target.closest("button") || event.button !== 0) return;
+    if (!mouseInput.active) beginMouseCapture();
+    if (mouseInput.active) {
+        mouseDrag = {id: event.pointerId, x: event.clientX, y: event.clientY};
+        mouseSurface.setPointerCapture(event.pointerId);
+    }
+});
+mouseSurface.addEventListener("pointermove", event => {
+    if (!mouseDrag || document.pointerLockElement === mouseSurface) return;
+    mouseInput.move(event.clientX - mouseDrag.x, event.clientY - mouseDrag.y, performance.now());
+    mouseDrag.x = event.clientX; mouseDrag.y = event.clientY;
+});
+for (const type of ["pointerup", "pointercancel", "lostpointercapture"]) {
+    mouseSurface.addEventListener(type, () => {
+        if (document.pointerLockElement !== mouseSurface && mouseDrag) { stopMouseCapture(); sendInputIfChanged(); }
+        mouseDrag = null;
+    });
+}
+document.addEventListener("mousemove", event => {
+    if (document.pointerLockElement === mouseSurface) mouseInput.move(event.movementX, event.movementY, performance.now());
+});
+document.addEventListener("pointerlockchange", () => {
+    if (document.pointerLockElement !== mouseSurface && mouseInput.active) { stopMouseCapture(); sendInputIfChanged(); }
+});
+mouseSurface.addEventListener("contextmenu", event => event.preventDefault());
+setInterval(() => {
+    if (!nativeMouseRequested || !mouseInput.active || mouseBusy || document.hidden
+            || !STATE?.[NXBT_CONTROLLER_INDEX]?.mouse_ready) return;
+    if (performance.now() - mouseInput.last > 250) { mouseInput.dx = mouseInput.dy = 0; return; }
+    const delta = mouseInput.mouse();
+    if (!delta) return;
+    mouseBusy = true;
+    socket.emit("joycon2_mouse", delta, result => {
+        mouseBusy = false;
+        if (!result?.ok && mouseInput.active) mouseStatus.textContent = "Movement dropped";
+    });
+}, 50);
+
 // Request to the state at 1Hz
 socket.emit('state');
 let stateInterval = setInterval(function() {
@@ -284,6 +405,16 @@ let stateInterval = setInterval(function() {
 
 socket.on('state', function(state) {
     STATE = state;
+    const session = state[NXBT_CONTROLLER_INDEX];
+    if (session?.native_test) {
+        nativeMouseSeen = true;
+        if (mouseInput.active) mouseStatus.textContent = session.mouse_ready ?
+            `Native cursor - ${session.native_remaining}s` : "Connecting native cursor...";
+    } else if (nativeMouseRequested && nativeMouseSeen) {
+        nativeMouseRequested = false; nativeMouseSeen = false; stopMouseCapture();
+        mouseStatus.textContent = "Native test ended";
+    }
+    updateMouseAvailability();
 });
 
 socket.on('connect', function() {
@@ -297,6 +428,7 @@ socket.on('create_pro_controller', function(index) {
 });
 
 socket.on('disconnect', function() {
+    stopMouseCapture(); nativeMouseRequested = false; mouseBusy = false;
     NXBT_CONTROLLER_INDEX = false;
     CONTROLLER_CONNECTED = false;
     HTML_CONTROLLER_CONFIG.classList.add('hidden');
@@ -330,6 +462,7 @@ function setKeyboardControl(control, pressed) {
 }
 
 function globalKeydownHandler(evt) {
+    if (evt.target?.closest("input, select, textarea")) return;
     if (INPUT_DEVICE !== InputDevice.KEYBOARD) {
         return
     }
@@ -463,10 +596,12 @@ function displayError(errorText) {
 }
 
 function createProController(backend = "pro") {
+    stopMouseCapture(); nativeMouseRequested = false;
     STATE = {};
     clearInterval(checkForLoadInterval);
     HTML_LOADER_TEXT.textContent = "connecting";
     ACTIVE_BACKEND = backend;
+    updateMouseAvailability();
     const joycon = backend === "joycon2_right";
     document.body.classList.toggle("joycon-right-mode", joycon);
     document.getElementById("joycon-options").classList.toggle("hidden", !joycon);

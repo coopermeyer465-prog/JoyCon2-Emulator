@@ -680,6 +680,26 @@ Controller Sessions Stying
 Error Display Stying
 **************************************************/
 
+#mouse-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; margin: 1rem 0; }
+#mouse-toolbar label { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; min-width: 0; }
+#mouse-toolbar label:first-child { flex-basis: 100%; }
+#mouse-target { flex: 1; max-width: 100%; min-width: 0; font-size: 0.9rem; }
+#mouse-gain { width: 120px; }
+#mouse-surface { height: 180px; position: relative; display: flex; align-items: center;
+    justify-content: center; border: 1px solid #708087; border-radius: 4px;
+    background: #161a1c; touch-action: none; user-select: none; cursor: crosshair; }
+#mouse-surface.capturing { border-color: #77d8b4; background: #142722; }
+#mouse-surface #mouse-capture { width: auto; max-width: 90%; margin: 0; z-index: 1; }
+#mouse-reticle { position: absolute; width: 32px; height: 32px; border: 1px solid #708087; border-radius: 50%; }
+#mouse-reticle::before, #mouse-reticle::after { content: ""; position: absolute; background: #708087; }
+#mouse-reticle::before { width: 48px; height: 1px; left: -8px; top: 15px; }
+#mouse-reticle::after { height: 48px; width: 1px; top: -8px; left: 15px; }
+#mouse-status { display: block; min-height: 1.5rem; margin: 0.5rem 0 1rem; font-size: 0.9rem; }
+@media (max-width: 520px) {
+    #mouse-toolbar label:first-child { flex-direction: column; align-items: stretch; }
+    #mouse-target { flex: none; width: 100%; }
+}
+
 #error-display {
     width: 80%;
     max-width: 960px;

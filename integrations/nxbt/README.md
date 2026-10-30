@@ -75,9 +75,40 @@ buttons are also available. Keyboard `-`, `=` and `0` map to SL, SR and C.
 GameChat behavior still depends on the console's account/settings and parental
 permissions; this project does not bypass them. This is not a two-stick controller.
 
-Mouse mode is intentionally absent. Native Joy-Con 2 optical-mouse reports are
-future work; mouse-to-stick input was removed at the owner's request. No mouse
-sensor or gyro emulation is advertised.
+## Mouse Surface
+
+The **Mouse** section has an Off / Switch 2 cursor / Left stick / Right stick
+target selector and sensitivity slider. Choose a target, then **Capture Mouse**.
+Pointer lock captures relative movement; Escape releases it. Dragging within the
+surface is a fallback for browsers that do not grant pointer lock, including
+touch/pen input. Mouse clicks do not press console buttons. Blur, hidden tabs,
+mode changes and disconnect release the mouse; stick movement returns to center
+after 90 ms without motion. Keyboard/WebHID input remains available independently.
+
+Pro mode supports either physical analog stick. A single Joy-Con 2 (R) supports
+only its right stick, so the Left stick target is disabled in that mode. Mouse
+right-stick input chooses the right source without altering the saved keyboard/
+gamepad source selector. The normal orientation selector still applies.
+
+**Switch 2 cursor (30s test)** is experimental, not standalone generated mouse or
+gyro emulation. It runs the successful private moving-motion diagnostic with
+browser-generated optical fields. It temporarily pauses normal buttons/sticks,
+ends within 30 seconds (or earlier when samples run out), and restores the normal
+auto-joining controller. Switching targets also ends the diagnostic. Another tab
+cannot start it or send mouse input. Stale/overflow movement is discarded, never
+retried or replayed; success is a queue acknowledgement, not console receipt.
+
+Native cursor requires an owned compact moving sensor capture at
+`PROJECT/.state/mouse-motion.json`, or a server-side absolute `mouse_capture` path
+in the existing private config. Keep it owner-only; never upload it to GitHub.
+The option stays disabled when the capture is absent. The development installation
+has its private capture configured; new installs must supply their own.
+This does not bypass game support, account
+restrictions or play-time limits. Generated/live gyro remains unimplemented.
+
+![Mouse controls in NXBT](../../docs/images/nxbt-mouse-controls.png)
+
+## Input Lifecycle
 
 Input refreshes an expiring 450 ms lease; losing readiness, hiding the browser,
 or losing its refresh loop releases input. Closing/disconnecting the owning tab

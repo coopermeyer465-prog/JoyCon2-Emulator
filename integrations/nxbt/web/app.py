@@ -144,14 +144,79 @@ def handle_input(message):
         if not owns(index):
             raise ValueError("This session does not own the controller")
         if index == JOYCON2_INDEX:
-            options = message[2] if len(message) > 2 else {}
-            value = input_step(packet, options.get("stick", "left"), options.get("orientation", "sideways-right"),
-                               options.get("button_layout", "printed"))
-            joycon2.request({"op": "set", "state": value})
+            with user_info_lock:
+                if not owns(index) or joycon2.mouse_test_active is True:
+                    return
+                options = message[2] if len(message) > 2 else {}
+                value = input_step(packet, options.get("stick", "left"), options.get("orientation", "sideways-right"),
+                                   options.get("button_layout", "printed"))
+                joycon2.request({"op": "set", "state": value})
         else:
             nxbt.set_controller_input(index, packet)
     except (OSError, ValueError, TypeError, IndexError, AttributeError) as error:
         emit('error', str(error))
+
+
+def restore_after_mouse(owner, generation):
+    try:
+        while joycon2_owner == owner and joycon2.generation == generation and joycon2.active():
+            sio.sleep(0.5)
+        with user_info_lock:
+            if joycon2_owner == owner and joycon2.generation == generation:
+                joycon2.start()
+    except Exception:
+        sio.emit("error", "Native cursor ended; reconnect the controller", to=owner)
+
+
+@sio.on('joycon2_mouse_test')
+def handle_mouse_test():
+    with user_info_lock:
+        if not owns(JOYCON2_INDEX):
+            return {"ok": False, "error": "This tab does not own a right Joy-Con"}
+        if joycon2.mouse_test_active is True:
+            return {"ok": False, "error": "Native cursor test already running"}
+        try:
+            joycon2.start(native_mouse=True)
+            sio.start_background_task(restore_after_mouse, request.sid, joycon2.generation)
+            return {"ok": True}
+        except Exception:
+            try:
+                joycon2.start()
+            except Exception:
+                pass
+            return {"ok": False, "error": "Native cursor unavailable; check the private motion capture"}
+
+
+@sio.on('joycon2_mouse_stop')
+def handle_mouse_stop():
+    with user_info_lock:
+        if not owns(JOYCON2_INDEX):
+            return {"ok": False}
+        try:
+            if joycon2.mouse_test_active is True:
+                joycon2.start()
+            return {"ok": True}
+        except Exception:
+            return {"ok": False, "error": "Controller reconnection failed"}
+
+
+@sio.on('joycon2_mouse')
+def handle_mouse_input(value):
+    if not owns(JOYCON2_INDEX) or joycon2.mouse_test_active is not True:
+        return {"ok": False}
+    try:
+        if not isinstance(value, dict) or set(value) - {"dx", "dy", "lifted"}:
+            raise ValueError("Invalid mouse request")
+        dx, dy, lifted = value.get("dx", 0), value.get("dy", 0), value.get("lifted", False)
+        if (any(type(axis) is not int or not -2047 <= axis <= 2047 for axis in (dx, dy))
+                or type(lifted) is not bool or (lifted and (dx or dy))):
+            raise ValueError("Invalid mouse delta")
+        command = {"op": "mouse", "dx": dx, "dy": dy}
+        command.update({"lifted": True} if lifted else {"surface": 50})
+        joycon2.request(command)
+        return {"ok": True}
+    except (OSError, ValueError):
+        return {"ok": False}
 
 
 @sio.on('joycon2_join')
