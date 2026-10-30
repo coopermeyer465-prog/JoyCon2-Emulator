@@ -122,6 +122,7 @@ let nativeMouseRequested = false;
 let nativeMouseSeen = false;
 let mouseBusy = false;
 let mouseCapturePending = false;
+const virtualPresses = new Map();
 let hidDevice = null;
 let hidLayouts = null;
 let hidState = null;
@@ -140,6 +141,11 @@ function resetInput() {
 function sendInputIfChanged() {
     if (nativeMouseRequested || STATE?.[NXBT_CONTROLLER_INDEX]?.native_test) return;
     const outgoing = JSON.parse(JSON.stringify(INPUT_PACKET));
+    const now = performance.now();
+    for (const [button, until] of virtualPresses) {
+        if (until > now) outgoing[button] = true;
+        else virtualPresses.delete(button);
+    }
     if (mouseInput.pressingA(performance.now())) outgoing.A = true;
     const mouseStick = mouseInput.stick(performance.now());
     if (mouseStick) {
@@ -149,7 +155,6 @@ function sendInputIfChanged() {
     const changed = JSON.stringify(outgoing) !== JSON.stringify(INPUT_PACKET_OLD);
     const joycon = ACTIVE_BACKEND === "joycon2_right";
     if (joycon && STATE?.[NXBT_CONTROLLER_INDEX]?.state !== ControllerState.CONNECTED) return;
-    const now = performance.now();
     if (document.hidden && joycon) return;
     if (joycon && now - lastInputSent < 33) return;
     if (NXBT_CONTROLLER_INDEX !== false && (changed || (joycon && !sequenceRunning && now - lastInputSent > 100))) {
@@ -424,7 +429,7 @@ setInterval(() => {
         mouseBusy = false;
         if (!result?.ok && mouseInput.active) mouseStatus.textContent = "Movement dropped";
     });
-}, 50);
+}, 16);
 
 // Request to the state at 1Hz
 socket.emit('state');
@@ -634,6 +639,7 @@ function createProController(backend = "pro") {
     const joycon = backend === "joycon2_right";
     document.body.classList.toggle("joycon-right-mode", joycon);
     document.getElementById("joycon-options").classList.toggle("hidden", !joycon);
+    document.getElementById("pro-options").classList.toggle("hidden", joycon);
     document.getElementById("backend-name").textContent = joycon ? "Joy-Con 2 (R)" : "Pro Controller";
     document.getElementById("procon-underlay").parentElement.classList.toggle("hidden", joycon);
     document.getElementById("joyconr-underlay").parentElement.classList.toggle("hidden", !joycon);
@@ -674,6 +680,20 @@ function tapStick(x, y) {
 function registerJoyCon() {
     sequenceRunning = true;
     socket.emit('joycon2_join');
+}
+
+function reconnectJoyCon() {
+    mouseStatus.textContent = "Reconnecting Joy-Con...";
+    socket.emit('joycon2_reconnect', result => {
+        if (!result?.ok) mouseStatus.textContent = result?.error || "Controller reconnection failed";
+    });
+}
+
+function tapPro(button) {
+    if (ACTIVE_BACKEND !== "pro" || NXBT_CONTROLLER_INDEX === false) return;
+    virtualPresses.set(button, performance.now() + 90);
+    sendInputIfChanged();
+    setTimeout(sendInputIfChanged, 100);
 }
 
 function shutdownController() {

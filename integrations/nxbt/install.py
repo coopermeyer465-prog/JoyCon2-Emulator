@@ -35,14 +35,20 @@ def install(root, project, python, pythonpath, address, config_path):
             shutil.copy2(target, saved)
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source, target)
+    previous_config = {}
     if config_path.exists():
         shutil.copy2(config_path, backup / "previous-config.json")
+        previous_config = json.loads(config_path.read_text())
     config_path.parent.mkdir(parents=True, exist_ok=True)
     temporary = config_path.with_name(config_path.name + ".new")
     fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     with os.fdopen(fd, "w") as stream:
-        json.dump({"project": str(project), "python": str(python),
-                   "pythonpath": pythonpath, "address": address}, stream)
+        config = {"project": str(project), "python": str(python),
+                  "pythonpath": pythonpath, "address": address}
+        mouse_capture = previous_config.get("mouse_capture")
+        if isinstance(mouse_capture, str) and Path(mouse_capture).is_absolute():
+            config["mouse_capture"] = mouse_capture
+        json.dump(config, stream)
     os.replace(temporary, config_path)
     return backup
 

@@ -106,6 +106,15 @@ class WebTests(unittest.TestCase):
         web.joycon2.stop.assert_called_once()
         self.owner = web.sio.test_client(web.app)
 
+    def test_reconnect_is_owner_only_and_does_not_reset_controller_ownership(self):
+        self.create()
+        self.assertFalse(self.other.emit("joycon2_reconnect", callback=True)["ok"])
+        self.assertTrue(self.owner.emit("joycon2_reconnect", callback=True)["ok"])
+        web.joycon2.reconnect.assert_called_once_with()
+        self.assertIsNotNone(web.joycon2_owner)
+        web.joycon2.mouse_test_active = True
+        self.assertFalse(self.owner.emit("joycon2_reconnect", callback=True)["ok"])
+
     def test_native_mouse_ownership_validation_and_normal_input_suppression(self):
         self.create()
         self.assertFalse(self.other.emit("joycon2_mouse_test", callback=True)["ok"])

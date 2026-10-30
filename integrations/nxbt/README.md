@@ -53,6 +53,9 @@ Use **Change Controller** to stop the current controller and return to selection
 The radio cannot run both stacks at once; another session using it must disconnect.
 The BLE backend runs as transient `joycon2-web.service`, not inside NXBT's Python
 environment. It stops BlueZ while active and restores BlueZ when stopped.
+The VM must stay running, but VirtualBox Manager does not need to remain open
+after a headless VM has started. `SYNC / Reconnect` restarts the paired emulator
+with its existing private bond; it does not erase or enter new-device pairing.
 
 Joy-Con mode has one physical right stick. Select whether the browser's left
 stick/WASD or right stick/arrows drives it. Choose sideways screen directions or
@@ -74,6 +77,9 @@ connection alone is not proof of registration. Manual SL+SR, SL, SR and C/GameCh
 buttons are also available. Keyboard `-`, `=` and `0` map to SL, SR and C.
 GameChat behavior still depends on the console's account/settings and parental
 permissions; this project does not bypass them. This is not a two-stick controller.
+Minus and Capture are left-half buttons, so they are available in the Pro
+Controller panel (including keyboard and Lic2 WebHID) but intentionally absent
+from the right-Joy-Con panel. The Pro panel also has direct `-` and Capture taps.
 
 ## Mouse Surface
 
@@ -95,14 +101,17 @@ only its right stick, so the Left stick target is disabled in that mode. Mouse
 right-stick input chooses the right source without altering the saved keyboard/
 gamepad source selector. The normal orientation selector still applies.
 
-**Switch 2 cursor (30s test)** is experimental, not standalone generated mouse or
+**Switch 2 cursor (5 min test)** is experimental, not standalone generated mouse or
 gyro emulation. It runs the successful private moving-motion diagnostic with
 browser-generated optical fields. It temporarily pauses normal buttons/sticks,
 except for explicit captured-mouse A taps,
-ends within 30 seconds (or earlier when samples run out), and restores the normal
+ends within five minutes and restores the normal
 auto-joining controller. Switching targets also ends the diagnostic. Another tab
 cannot start it or send mouse input. Stale/overflow movement is discarded, never
 retried or replayed; success is a queue acknowledgement, not console receipt.
+Its recorded motion bed is now paced from the capture timestamps and loops only
+opaque motion bytes for the duration. Captured buttons, sticks and optical fields
+are still never replayed.
 
 Native cursor requires an owned compact moving sensor capture at
 `PROJECT/.state/mouse-motion.json`, or a server-side absolute `mouse_capture` path

@@ -30,7 +30,7 @@ def main():
     lab.add_argument("--experimental-mouse", action="store_true", help="Advertise native optical mouse (unverified on console)")
     recorded = lab.add_mutually_exclusive_group()
     recorded.add_argument("--experimental-sensor-replay", type=Path,
-                     help="Isolated private compact sensor playback, max 30 seconds; not live gyro")
+                     help="Isolated private compact sensor playback; command-mouse sessions may run up to 300 seconds")
     recorded.add_argument("--experimental-motion-baseline", type=Path,
                           help="Private stationary motion baseline with command mouse, max 30 seconds; not live gyro")
     lab.add_argument("--replay-command-mouse", action="store_true",
@@ -93,9 +93,10 @@ def main():
             parser.error("Diagnostic pulses cannot be combined with a command socket or auto-join")
         if args.replay_command_mouse and not args.experimental_sensor_replay:
             parser.error("--replay-command-mouse requires --experimental-sensor-replay")
-        if args.experimental_sensor_replay and (not 1 <= args.seconds <= 30 or (args.control_socket and not args.replay_command_mouse)
+        sensor_limit = 300 if args.replay_command_mouse else 30
+        if args.experimental_sensor_replay and (not 1 <= args.seconds <= sensor_limit or (args.control_socket and not args.replay_command_mouse)
                                                 or args.auto_join or args.test_button):
-            parser.error("Sensor replay needs 1..30 seconds and no command socket, auto-join or test button")
+            parser.error("Sensor replay needs 1..%d seconds and no auto-join or test button" % sensor_limit)
         if args.experimental_motion_baseline and (not 1 <= args.seconds <= 30 or args.auto_join or args.test_button):
             parser.error("Motion baseline needs 1..30 seconds and no auto-join or test button")
         from .backend import serve

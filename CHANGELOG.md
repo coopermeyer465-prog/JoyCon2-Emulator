@@ -2,6 +2,21 @@
 
 ## 2026-10-30
 
+### Controls and Sustained Native Cursor
+
+- Added a bond-preserving `SYNC / Reconnect` action for the right-Joy-Con web
+  backend. It restarts the existing paired emulator and does not enter new-device
+  pairing or erase private state.
+- Added direct Pro Controller `-`, Capture, HOME and `+` taps. Keyboard and Lic2
+  WebHID mappings already cover the standard Pro buttons; right-Joy-Con mode
+  remains limited to the buttons represented by its physical report.
+- Native cursor sessions now run for up to five minutes. Command-mouse mode
+  paces and loops only the private opaque motion bed at recorded timestamps,
+  while generated optical movement and the bounded A click remain local inputs.
+  Browser delta dispatch now runs at approximately 60 Hz.
+- The NXBT overlay installer retains an existing private `mouse_capture` path.
+  Verification: 98 core tests and 11 installed web-handler tests pass.
+
 ### Click-To-Capture and Mouse A
 
 - Mouse capture now activates only after real pointer lock succeeds. A single

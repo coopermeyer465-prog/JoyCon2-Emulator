@@ -106,11 +106,12 @@ joycon2-emulator serve --experimental --address ADAPTER_OWN_PUBLIC_ADDRESS \
 
 Only optical fields and the 40-byte motion block/length are read into generated
 neutral controller reports. Captured buttons, sticks, power and reserved fields
-are never transmitted. At most 2048 frames / 2 MiB are accepted, startup frames
-without motion are skipped, samples are consumed once without looping, and
-runtime is limited to 1..30 seconds. Playback uses backend report cadence without
-resampling; it is not timing-faithful physical-controller emulation. Recorded
-motion timing is retained in full replay mode.
+are never transmitted. At most 2048 frames / 2 MiB are accepted and startup
+frames without motion are skipped. Full replay consumes samples once and is
+limited to 1..30 seconds. Command-mouse replay can run for 1..300 seconds and
+loops only opaque motion bytes at the original capture timestamps; it replaces
+the recorded optical fields with local commands. It is not timing-faithful
+physical-controller emulation.
 
 Add `--replay-command-mouse --control-socket .state/sensor-test.sock` to replace
 recorded optical data with local mouse commands, for example:

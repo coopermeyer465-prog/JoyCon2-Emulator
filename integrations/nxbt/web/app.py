@@ -250,6 +250,19 @@ def handle_joycon2_join():
             emit('error', str(error))
 
 
+@sio.on('joycon2_reconnect')
+def handle_joycon2_reconnect():
+    if not owns(JOYCON2_INDEX):
+        return {"ok": False, "error": "This tab does not own a right Joy-Con"}
+    if joycon2.mouse_test_active is True:
+        return {"ok": False, "error": "Stop native cursor mode before reconnecting"}
+    try:
+        joycon2.reconnect()
+        return {"ok": True}
+    except (OSError, ValueError, RuntimeError):
+        return {"ok": False, "error": "Controller reconnection failed"}
+
+
 @sio.on('joycon2_button')
 def handle_joycon2_button(button):
     layout = "printed"

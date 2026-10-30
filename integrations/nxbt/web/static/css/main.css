@@ -77,7 +77,7 @@ footer {
     max-width: 100%;
 }
 
-#joycon-button-pad, #joycon-stick-pad {
+#joycon-button-pad, #joycon-stick-pad, #pro-button-pad {
     display: grid;
     width: 100%;
     gap: 8px;
@@ -85,9 +85,10 @@ footer {
 }
 
 #joycon-stick-pad { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+#pro-button-pad { grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: 8px; }
 .joycon-right-mode [data-pro-only] { display: none; }
 body:not(.joycon-right-mode) [data-right-only] { display: none; }
-#joycon-button-pad button, #joycon-stick-pad button {
+#joycon-button-pad button, #joycon-stick-pad button, #pro-button-pad button {
     width: 100%;
     min-height: 44px;
     padding: 8px;

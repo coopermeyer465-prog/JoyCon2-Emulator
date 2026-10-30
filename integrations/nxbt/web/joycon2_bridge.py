@@ -11,6 +11,7 @@ import time
 
 
 RIGHT_BUTTON_NAMES = ("A", "B", "X", "Y", "R", "ZR", "PLUS", "STICK", "HOME", "C", "SL", "SR")
+NATIVE_MOUSE_SECONDS = 300
 
 
 def map_button(button, layout="printed"):
@@ -120,9 +121,9 @@ class JoyCon2Bridge:
             self.run("hciconfig", "hci0", "down")
             # Let the previous HCI owner and kernel command queue settle.
             time.sleep(0.75)
-            options = (["--seconds", "30", "--experimental-sensor-replay", str(capture), "--replay-command-mouse"]
+            options = (["--seconds", str(NATIVE_MOUSE_SECONDS), "--experimental-sensor-replay", str(capture), "--replay-command-mouse"]
                        if native_mouse else ["--seconds", "0", "--auto-join"])
-            runtime = ["--property=RuntimeMaxSec=40"] if native_mouse else []
+            runtime = ["--property=RuntimeMaxSec=" + str(NATIVE_MOUSE_SECONDS + 15)] if native_mouse else []
             self.run("systemd-run", "--quiet", "--collect", "--unit=" + self.UNIT,
                      "--property=WorkingDirectory=" + str(project),
                      "--property=ExecStopPost=/usr/bin/systemctl start bluetooth",
@@ -149,6 +150,12 @@ class JoyCon2Bridge:
         self.run("systemctl", "stop", self.UNIT, check=False)
         self.run("systemctl", "start", "bluetooth")
 
+    def reconnect(self):
+        """Restart the paired peripheral without changing its stored bond."""
+        self.stop()
+        time.sleep(0.25)
+        return self.start()
+
     def status(self):
         try:
             result = self.request({"op": "status"})
@@ -160,5 +167,5 @@ class JoyCon2Bridge:
                 "type": "joycon2_right", "errors": [],
                 "native_available": self.mouse_capture().is_file(),
                 "native_test": self.mouse_test_active,
-                "native_remaining": max(0, 30 - int(time.monotonic() - self.mouse_test_started)),
+                "native_remaining": max(0, NATIVE_MOUSE_SECONDS - int(time.monotonic() - self.mouse_test_started)),
                 "mouse_ready": bool(self.mouse_test_active and result.get("ready") and result.get("mouse_enabled"))}

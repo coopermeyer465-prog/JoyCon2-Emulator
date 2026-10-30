@@ -129,9 +129,9 @@ class BridgeTests(unittest.TestCase):
             instance.request = Mock(return_value={"ready": False})
             instance.start(native_mouse=True)
             command = next(call.args for call in instance.run.call_args_list if call.args[0] == "systemd-run")
-            self.assertIn("--property=RuntimeMaxSec=40", command)
+            self.assertIn("--property=RuntimeMaxSec=315", command)
             self.assertIn("--replay-command-mouse", command)
-            self.assertEqual(command[command.index("--seconds") + 1], "30")
+            self.assertEqual(command[command.index("--seconds") + 1], "300")
             self.assertNotIn("--auto-join", command)
             self.assertTrue(instance.mouse_test_active)
             generation = instance.generation
@@ -142,3 +142,11 @@ class BridgeTests(unittest.TestCase):
             self.assertNotIn("--experimental-sensor-replay", command)
             self.assertFalse(instance.mouse_test_active)
             self.assertGreater(instance.generation, generation)
+
+    def test_reconnect_preserves_bond_and_restarts_normal_mode(self):
+        instance = bridge.JoyCon2Bridge()
+        instance.stop = Mock()
+        instance.start = Mock(return_value={"ready": True})
+        self.assertEqual(instance.reconnect(), {"ready": True})
+        instance.stop.assert_called_once_with()
+        instance.start.assert_called_once_with()

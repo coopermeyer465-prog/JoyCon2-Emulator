@@ -16,11 +16,11 @@ class SensorReplayTests(unittest.TestCase):
             path.write_text(json.dumps({"version": 1, "frames": frames}))
             return SensorReplay(path)
 
-    def frame(self, report=None):
+    def frame(self, report=None, elapsed=0):
         if report is None:
             report = bytearray([0xA5] * 63)
             report[15] = 40
-        return {"kind": "right", "data": bytes(report).hex()}
+        return {"kind": "right", "elapsed": elapsed, "data": bytes(report).hex()}
 
     def test_only_allowlisted_sensor_bytes_enter_generated_report(self):
         replay = self.load([self.frame()])
@@ -93,6 +93,20 @@ class SensorReplayTests(unittest.TestCase):
         self.assertEqual(result[:15], neutral[:15])
         self.assertEqual(result[15:56], bytes([40]) + bytes([0xA5]) * 40)
         self.assertIsNone(replay.next_report(neutral, 0x17, command_mouse=True))
+
+    def test_command_mouse_can_loop_at_the_recorded_cadence(self):
+        first = bytearray([0xA5] * 63)
+        first[15] = 40
+        second = bytearray([0x5A] * 63)
+        second[15] = 40
+        replay = self.load([self.frame(first, 0), self.frame(second, 0.02)])
+        neutral = right_report(mouse=(1, 2, 50))
+        self.assertEqual(replay.next_report(neutral, 0x17, command_mouse=True, elapsed=0, loop=True)[19], 0xA5)
+        self.assertEqual(replay.next_report(neutral, 0x17, command_mouse=True, elapsed=0.02, loop=True)[19], 0x5A)
+        self.assertEqual(replay.next_report(neutral, 0x17, command_mouse=True, elapsed=0.019, loop=True)[19], 0xA5)
+        self.assertEqual(replay.next_report(neutral, 0x17, command_mouse=True, elapsed=0.04, loop=True)[19], 0xA5)
+        with self.assertRaises(ValueError):
+            replay.next_report(neutral, 0x17, command_mouse=True, loop=True)
 
     def test_recorded_diagnostic_rejects_button_and_stick_commands(self):
         state = InputState()

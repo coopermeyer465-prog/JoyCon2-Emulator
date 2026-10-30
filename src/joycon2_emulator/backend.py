@@ -88,8 +88,8 @@ async def serve(address, transport, bond_file, seconds, calibration=None, test_b
         raise ValueError("Command mouse playback needs a private sensor replay")
     if sensor_replay is not None or motion_baseline is not None:
         if ((sensor_replay is not None and ((control_socket and not replay_command_mouse) or motion_baseline is not None))
-                or test_button or auto_join or not 1 <= seconds <= 30):
-            raise ValueError("Recorded sensors require 1..30 seconds, no pulses/auto-join; sockets require command mouse")
+                or test_button or auto_join or not 1 <= seconds <= (300 if replay_command_mouse else 30)):
+            raise ValueError("Recorded sensors require 1..300 seconds with command mouse, otherwise 1..30; no pulses/auto-join")
         from .sensor_replay import SensorReplay
         replay = SensorReplay(sensor_replay if sensor_replay is not None else motion_baseline)
         experimental_mouse = True
@@ -206,6 +206,7 @@ async def serve(address, transport, bond_file, seconds, calibration=None, test_b
             join_pressed = False
             counter = 0
             last_motion_ms = None
+            replay_started = None
             deadline = time.monotonic() + seconds if seconds else float("inf")
             while time.monotonic() < deadline and not state.stopping:
                 subscribed = any(values.get(inputs.handle, b"\x00\x00")[0] & 1
@@ -256,10 +257,14 @@ async def serve(address, transport, bond_file, seconds, calibration=None, test_b
                                 right_report(counter, buttons, x=center_x, y=center_y, mouse=mouse),
                                 controller.features.enabled, now_ms, interval)
                         else:
+                            if replay_command_mouse and replay_started is None:
+                                replay_started = time.monotonic()
                             report = replay.next_report(
                                 right_report(counter, buttons, x=center_x, y=center_y,
                                              mouse=mouse if replay_command_mouse else None),
-                                controller.features.enabled, command_mouse=replay_command_mouse)
+                                controller.features.enabled, command_mouse=replay_command_mouse,
+                                elapsed=(time.monotonic() - replay_started) if replay_command_mouse else None,
+                                loop=replay_command_mouse)
                         if report is None:
                             break
                     await asyncio.wait_for(notify_input(device, active_connection,

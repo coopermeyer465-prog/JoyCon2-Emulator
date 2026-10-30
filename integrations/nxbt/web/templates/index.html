@@ -89,6 +89,7 @@
                         <option value="raw">Upright (raw axes)</option>
                     </select></label>
                     <button type="button" onclick="registerJoyCon()">SL + SR</button>
+                    <button type="button" title="Reconnect the paired Joy-Con without resetting its bond" onclick="reconnectJoyCon()">SYNC / Reconnect</button>
                     <label>Face buttons <select id="joycon-face-layout" onchange="resetInput()">
                         <option value="printed">Printed Joy-Con labels</option>
                         <option value="sideways-right">Sideways A/B/X/Y</option>
@@ -112,6 +113,14 @@
                         <button type="button" title="Stick Up" aria-label="Stick Up" onclick="tapStick(0,0.75)">&#8593;</button>
                         <button type="button" title="Stick Down" aria-label="Stick Down" onclick="tapStick(0,-0.75)">&#8595;</button>
                         <button type="button" title="Stick Right" aria-label="Stick Right" onclick="tapStick(0.75,0)">&#8594;</button>
+                    </div>
+                </div>
+                <div id="pro-options">
+                    <div id="pro-button-pad">
+                        <button type="button" title="Tap Minus" onclick="tapPro('MINUS')">-</button>
+                        <button type="button" title="Tap Capture" onclick="tapPro('CAPTURE')">Capture</button>
+                        <button type="button" title="Tap HOME" onclick="tapPro('HOME')">HOME</button>
+                        <button type="button" title="Tap Plus" onclick="tapPro('PLUS')">+</button>
                     </div>
                 </div>
                 <div id="controller-underlay-container">
@@ -155,7 +164,7 @@
                     <div id="mouse-toolbar">
                         <label>Target <select id="mouse-target">
                             <option value="off">Off</option>
-                            <option value="native" disabled>Switch 2 cursor (30s test)</option>
+                            <option value="native" disabled>Switch 2 cursor (5 min test)</option>
                             <option value="left">Left stick</option>
                             <option value="right">Right stick</option>
                         </select></label>
