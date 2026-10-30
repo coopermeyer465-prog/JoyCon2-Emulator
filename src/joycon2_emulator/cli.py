@@ -22,6 +22,7 @@ def main():
     lab = commands.add_parser("serve", help="EXPERIMENTAL GATT peripheral; not a playable controller")
     lab.add_argument("--experimental", action="store_true", required=True)
     lab.add_argument("--address", required=True, help="Adapter's OWN public address, not a physical Joy-Con")
+    lab.add_argument("--side", choices=("left", "right"), default="right")
     lab.add_argument("--transport", default="hci-socket:0")
     lab.add_argument("--bond-file", type=Path, default=Path(".state/bond.json"))
     lab.add_argument("--seconds", type=int, default=60)
@@ -105,7 +106,7 @@ def main():
                           args.calibration, args.test_button, args.control_socket, args.auto_join,
                           args.experimental_mouse, sensor_replay=args.experimental_sensor_replay,
                           motion_baseline=args.experimental_motion_baseline,
-                          replay_command_mouse=args.replay_command_mouse))
+                          replay_command_mouse=args.replay_command_mouse, side=args.side))
     elif args.command == "control":
         from .control import send
         request = {"op": args.action}

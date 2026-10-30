@@ -15,9 +15,14 @@ OPAQUE_RESPONSES = {(7, 1): b"\x00", (0x16, 1): bytes(24),
 
 
 class Controller:
-    def __init__(self, address, mouse=False, sensor_replay=False):
+    def __init__(self, address, side="right", mouse=False, sensor_replay=False):
+        if side not in ("left", "right"):
+            raise ValueError("Expected left or right Joy-Con side")
+        if side == "left" and (mouse or sensor_replay):
+            raise ValueError("Native mouse replay is only implemented for right Joy-Con")
         self.pairing = PairingSession(address)
-        self.memory = VirtualMemory(address)
+        self.memory = VirtualMemory(address, side)
+        self.side = side
         self.vibration_sample = None
         self.vibration_data = None
         self.player_led_pattern = 0

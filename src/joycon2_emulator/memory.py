@@ -16,6 +16,8 @@ CALIBRATION_BASES = (0x13080, 0x130C0, 0x13100, 0x13140)
 
 class VirtualMemory:
     def __init__(self, address, side="right"):
+        if side not in PRODUCTS:
+            raise ValueError("Expected left or right Joy-Con side")
         metadata = bytearray(64)
         metadata[:2] = b"\x01\x00"
         serial = "J2E" + hashlib.sha256(address_bytes(address)).hexdigest()[:11].upper()

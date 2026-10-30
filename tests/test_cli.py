@@ -23,6 +23,13 @@ class CliTests(unittest.TestCase):
                 main()
             self.assertEqual(serve.call_args.args[-1], expected)
 
+    def test_serve_passes_left_side_to_backend(self):
+        with patch("sys.argv", ["j2", "serve", "--experimental", "--address", "00:11:22:33:44:55", "--side", "left"]), \
+                patch("joycon2_emulator.cli.platform.system", return_value="Linux"), \
+                patch("joycon2_emulator.backend.serve", new_callable=AsyncMock) as serve:
+            main()
+        self.assertEqual(serve.call_args.kwargs["side"], "left")
+
     def test_mouse_raw_surface_is_forwarded(self):
         with patch("sys.argv", ["j2", "control", "mouse", "--dx", "5", "--surface", "50"]), \
                 patch("joycon2_emulator.control.send", new_callable=AsyncMock, return_value={"ok": True}) as send, \

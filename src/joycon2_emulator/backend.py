@@ -14,7 +14,7 @@ from bumble.hci import Address, OwnAddressType
 from bumble.transport import open_transport
 
 from .controller import Controller
-from .protocol import Command, advertisement, right_report
+from .protocol import Command, advertisement, compact_report
 from .input_test import ButtonPulse
 from .control import InputState, ControlServer
 
@@ -36,7 +36,9 @@ async def notify_input(device, connection, characteristic, report):
     await queue.drain(connection.handle)
 
 
-def install_services(device, on_command):
+def install_services(device, on_command, side):
+    if side not in ("left", "right"):
+        raise ValueError("Expected left or right Joy-Con side")
     def char(uuid, properties, value=b"", descriptor=None):
         result = Characteristic(uuid, properties, R | (W if properties & (P.WRITE | P.WRITE_WITHOUT_RESPONSE) else 0), value)
         if properties & P.NOTIFY:
@@ -54,7 +56,9 @@ def install_services(device, on_command):
         char("00c5af5d-1964-4e30-8f51-1956f96bd283", P.READ, b"\x00"),
     ])
     common = char("ab7de9be-89fe-49ad-828f-118f09df7fd2", P.READ | P.NOTIFY, bytes(63), RATE_DESCRIPTOR)
-    inputs = char("d5a9e01e-2ffc-4cca-b20c-8b67142bf442", P.READ | P.NOTIFY, right_report(), RATE_DESCRIPTOR)
+    input_uuid = {"left": "cc1bbbb5-7354-4d32-a716-a81cb241a32a",
+                 "right": "d5a9e01e-2ffc-4cca-b20c-8b67142bf442"}[side]
+    inputs = char(input_uuid, P.READ | P.NOTIFY, compact_report(side), RATE_DESCRIPTOR)
     response = char("c765a961-d9d8-4d36-a20a-5315b111836a", P.NOTIFY, descriptor=UNKNOWN_DESCRIPTOR)
     response2 = char("640ca58e-0e88-410c-a7f3-426faf2b690b", P.NOTIFY, descriptor=UNKNOWN_DESCRIPTOR)
     main = Service("ab7de9be-89fe-49ad-828f-118f09df7fd0", [
@@ -70,7 +74,7 @@ def install_services(device, on_command):
         char("ab7de9be-89fe-49ad-828f-118f09df7fde", P.READ | P.NOTIFY, bytes(1), RATE_DESCRIPTOR),
         char("ab7de9be-89fe-49ad-828f-118f09df7fdf", P.WRITE_WITHOUT_RESPONSE, CharacteristicValue(write=lambda *_: None)),
     ])
-    gap = Service("1800", [char("2a00", P.READ, b"Joy-Con 2 (R)"), char("2a01", P.READ, b"\xc4\x03")])
+    gap = Service("1800", [char("2a00", P.READ, ("Joy-Con 2 (" + side.upper() + ")").encode()), char("2a01", P.READ, b"\xc4\x03")])
     device.add_services([config, main, gap, Service("1801", [])])
     expected = [(config, 1), (main, 8), (common, 0xA), (inputs, 0xE),
                 (response, 0x1A), (response2, 0x1E), (gap, 0x2B)]
@@ -82,7 +86,11 @@ def install_services(device, on_command):
 
 async def serve(address, transport, bond_file, seconds, calibration=None, test_button=None, control_socket=None,
                 auto_join=False, experimental_mouse=False, sensor_replay=None, motion_baseline=None,
-                replay_command_mouse=False):
+                replay_command_mouse=False, side="right"):
+    if side not in ("left", "right"):
+        raise ValueError("Expected left or right Joy-Con side")
+    if side == "left" and (experimental_mouse or sensor_replay or motion_baseline):
+        raise ValueError("Native mouse and sensor replay are only implemented for right Joy-Con")
     replay = None
     if replay_command_mouse and sensor_replay is None:
         raise ValueError("Command mouse playback needs a private sensor replay")
@@ -100,7 +108,7 @@ async def serve(address, transport, bond_file, seconds, calibration=None, test_b
         config.gap_service_enabled = config.gatt_service_enabled = False
         config.classic_enabled = False
         device = Device.from_config_with_hci(config, hci.source, hci.sink)
-        controller = Controller(address, mouse=experimental_mouse, sensor_replay=replay is not None)
+        controller = Controller(address, side=side, mouse=experimental_mouse, sensor_replay=replay is not None)
         if calibration is not None:
             controller.memory.load_calibration(calibration)
         pairing = controller.pairing
@@ -108,7 +116,7 @@ async def serve(address, transport, bond_file, seconds, calibration=None, test_b
             pairing.load(bond_file)
             LOG.info("Loaded private bond state (keys redacted)")
         pending = set()
-        state = InputState()
+        state = InputState(side)
         state.mouse_supported = experimental_mouse
         state.mouse_only = replay is not None
         active_connection = None
@@ -142,9 +150,9 @@ async def serve(address, transport, bond_file, seconds, calibration=None, test_b
             if not task.cancelled() and (error := task.exception()) is not None:
                 LOG.error("Command task failed (%s); payload redacted", type(error).__name__)
 
-        inputs, response_characteristic = install_services(device, on_command)
+        inputs, response_characteristic = install_services(device, on_command, side)
         center_x, center_y = controller.memory.primary_center()
-        inputs.value = right_report(x=center_x, y=center_y)
+        inputs.value = compact_report(side, x=center_x, y=center_y)
 
         async def provide_ltk(handle, rand, ediv):
             connection = device.lookup_connection(handle)
@@ -186,9 +194,9 @@ async def serve(address, transport, bond_file, seconds, calibration=None, test_b
         host_address = (":".join(f"{byte:02X}" for byte in pairing.hosts[0][::-1])
                         if pairing.finalized else None)
         await device.start_advertising(own_address_type=OwnAddressType.PUBLIC,
-                                       advertising_data=advertisement(host=host_address), scan_response_data=b"",
+                                       advertising_data=advertisement(side, host=host_address), scan_response_data=b"",
                                        auto_restart=True)
-        LOG.warning("EXPERIMENTAL: right Joy-Con 2; duration=%s", seconds or "until stopped")
+        LOG.warning("EXPERIMENTAL: %s Joy-Con 2; duration=%s", side, seconds or "until stopped")
         server = ControlServer(control_socket, state) if control_socket else None
         if server:
             await server.start()
@@ -230,7 +238,7 @@ async def serve(address, transport, bond_file, seconds, calibration=None, test_b
                         LOG.info("Automatic SL+SR released; console registration requires confirmation")
                     if queued_reports == 0:
                         stream_start = time.monotonic()
-                        LOG.info("Subscribed right-report stream enabled")
+                        LOG.info("Subscribed %s compact-report stream enabled", side)
                     buttons, x, y = state.snapshot(time.monotonic())
                     if state.registering:
                         pressing = time.monotonic() >= join_until - 0.25
@@ -245,7 +253,7 @@ async def serve(address, transport, bond_file, seconds, calibration=None, test_b
                         LOG.info("Sending opt-in %s test pulse for %d ms", test_button, pulse.duration_ms)
                     raw_x, raw_y = controller.memory.logical_stick(x, y)
                     mouse = state.take_mouse(time.monotonic())
-                    report = right_report(counter, buttons, x=raw_x, y=raw_y, mouse=mouse)
+                    report = compact_report(side, counter, buttons, x=raw_x, y=raw_y, mouse=mouse)
                     if replay is not None and controller.features.enabled & 0x14 == 0x14:
                         if queued_reports == 0:
                             LOG.warning("Private sensor playback; captured controls discarded; recorded motion is not live gyro")
@@ -254,13 +262,13 @@ async def serve(address, transport, bond_file, seconds, calibration=None, test_b
                             interval = min(4095, max(1, now_ms - last_motion_ms)) if last_motion_ms is not None else 15
                             last_motion_ms = now_ms
                             report = replay.baseline_report(
-                                right_report(counter, buttons, x=center_x, y=center_y, mouse=mouse),
+                                compact_report(side, counter, buttons, x=center_x, y=center_y, mouse=mouse),
                                 controller.features.enabled, now_ms, interval)
                         else:
                             if replay_command_mouse and replay_started is None:
                                 replay_started = time.monotonic()
                             report = replay.next_report(
-                                right_report(counter, buttons, x=center_x, y=center_y,
+                                compact_report(side, counter, buttons, x=center_x, y=center_y,
                                              mouse=mouse if replay_command_mouse else None),
                                 controller.features.enabled, command_mouse=replay_command_mouse,
                                 elapsed=(time.monotonic() - replay_started) if replay_command_mouse else None,
@@ -290,7 +298,7 @@ async def serve(address, transport, bond_file, seconds, calibration=None, test_b
             if state.ready:
                 try:
                     await asyncio.wait_for(notify_input(device, active_connection,
-                        inputs, right_report(counter, x=center_x, y=center_y,
+                        inputs, compact_report(side, counter, x=center_x, y=center_y,
                                              mouse=(0, 0, 255) if state.mouse_enabled else None)), 1)
                     await asyncio.sleep(0.1)
                 except Exception:

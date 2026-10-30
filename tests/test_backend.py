@@ -40,11 +40,19 @@ class BackendTests(unittest.IsolatedAsyncioTestCase):
         config = DeviceConfiguration()
         config.gap_service_enabled = config.gatt_service_enabled = False
         device = Device(config=config)
-        inputs, response = install_services(device, lambda *_: None)
+        inputs, response = install_services(device, lambda *_: None, "right")
         self.assertEqual(inputs.handle, 0xE)
         self.assertEqual(response.handle, 0x1A)
         self.assertEqual([a.handle for a in device.gatt_server.attributes], list(range(1, 0x31)))
         self.assertEqual(device.gatt_server.attributes[-1].handle, 0x30)
+
+    async def test_left_compact_characteristic_keeps_the_expected_handle(self):
+        config = DeviceConfiguration()
+        config.gap_service_enabled = config.gatt_service_enabled = False
+        device = Device(config=config)
+        inputs, _ = install_services(device, lambda *_: None, "left")
+        self.assertEqual(inputs.handle, 0xE)
+        self.assertEqual(str(inputs.uuid).lower(), "cc1bbbb5-7354-4d32-a716-a81cb241a32a")
 
 
 if __name__ == "__main__":

@@ -9,7 +9,7 @@ import socket
 import stat
 import time
 
-from .protocol import RIGHT_BUTTONS
+from .protocol import BUTTONS
 
 
 def number(value, minimum, maximum, name):
@@ -20,14 +20,15 @@ def number(value, minimum, maximum, name):
     return float(value)
 
 
-def step(value):
+def step(value, side="right"):
+    buttons_for_side = BUTTONS[side]
     if not isinstance(value, dict) or set(value) - {"buttons", "x", "y", "duration", "orientation"}:
         raise ValueError("Step accepts buttons, x, y, duration and orientation only")
     buttons = value.get("buttons", [])
-    if not isinstance(buttons, list) or len(buttons) > len(RIGHT_BUTTONS):
+    if not isinstance(buttons, list) or len(buttons) > len(buttons_for_side):
         raise ValueError("buttons must be a short list")
-    if any(not isinstance(button, str) or button not in RIGHT_BUTTONS for button in buttons):
-        raise ValueError("Unsupported right Joy-Con button")
+    if any(not isinstance(button, str) or button not in buttons_for_side for button in buttons):
+        raise ValueError("Unsupported Joy-Con button")
     x = number(value.get("x", 0), -1, 1, "x")
     y = number(value.get("y", 0), -1, 1, "y")
     orientation = value.get("orientation", "raw")
@@ -40,7 +41,10 @@ def step(value):
 
 
 class InputState:
-    def __init__(self):
+    def __init__(self, side="right"):
+        if side not in BUTTONS:
+            raise ValueError("Expected left or right Joy-Con side")
+        self.side = side
         self.ready = False
         self.connected = False
         self.stopping = False
@@ -131,7 +135,7 @@ class InputState:
             values = [request.get("state")] if operation == "set" else request.get("steps")
             if not isinstance(values, list) or not 1 <= len(values) <= 256:
                 raise ValueError("Expected 1 to 256 sequence steps")
-            validated = [step(value) for value in values]
+            validated = [step(value, self.side) for value in values]
             if sum(value["duration"] for value in validated) > 300:
                 raise ValueError("Sequence exceeds 300 seconds")
             self.steps, self.started = validated, now

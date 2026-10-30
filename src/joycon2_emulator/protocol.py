@@ -63,18 +63,18 @@ def pack_stick(x=2048, y=2048):
 
 RIGHT_BUTTONS = {"B": 0, "A": 1, "Y": 2, "X": 3, "R": 4, "ZR": 5,
                  "PLUS": 6, "STICK": 7, "HOME": 8, "C": 12, "SR": 14, "SL": 15}
+LEFT_BUTTONS = {"DOWN": 0, "RIGHT": 1, "LEFT": 2, "UP": 3, "L": 4, "ZL": 5,
+                "MINUS": 6, "STICK": 7, "CAPTURE": 8, "SR": 14, "SL": 15}
+BUTTONS = {"right": RIGHT_BUTTONS, "left": LEFT_BUTTONS}
 
 
-def right_report(counter=0, buttons=(), x=2048, y=2048, mouse=None):
-    """Encode report 0x08 without its USB report ID; IMU remains disabled.
-
-    Optional mouse is (signed delta X, signed delta Y, raw surface byte).
-    The surface byte's meaning is not fully documented; 0/255 contact/lift
-    follows XD2Joy's experimental convention, not a calibrated distance.
-    """
+def compact_report(side, counter=0, buttons=(), x=2048, y=2048, mouse=None):
+    """Encode a side-specific compact report without a USB report ID."""
+    if side not in BUTTONS:
+        raise ValueError("Expected left or right Joy-Con side")
     bits = 0
     for name in buttons:
-        bits |= 1 << RIGHT_BUTTONS[name]
+        bits |= 1 << BUTTONS[side][name]
     report = bytearray(63)
     report[0] = counter & 255
     report[1] = 9 << 2
@@ -88,3 +88,17 @@ def right_report(counter=0, buttons=(), x=2048, y=2048, mouse=None):
                 raise ValueError("Invalid native mouse field")
         struct.pack_into("<hhB", report, 9, dx, dy, surface)
     return bytes(report)
+
+
+def right_report(counter=0, buttons=(), x=2048, y=2048, mouse=None):
+    """Encode report 0x08 without its USB report ID; IMU remains disabled.
+
+    Optional mouse is (signed delta X, signed delta Y, raw surface byte).
+    The surface byte's meaning is not fully documented; 0/255 contact/lift
+    follows XD2Joy's experimental convention, not a calibrated distance.
+    """
+    return compact_report("right", counter, buttons, x, y, mouse)
+
+
+def left_report(counter=0, buttons=(), x=2048, y=2048, mouse=None):
+    return compact_report("left", counter, buttons, x, y, mouse)

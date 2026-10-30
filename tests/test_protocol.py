@@ -1,6 +1,6 @@
 import unittest
 
-from joycon2_emulator.protocol import Command, advertisement, decode_advertisement, pack_stick, right_report
+from joycon2_emulator.protocol import Command, advertisement, decode_advertisement, left_report, pack_stick, right_report
 
 
 class ProtocolTests(unittest.TestCase):
@@ -32,6 +32,13 @@ class ProtocolTests(unittest.TestCase):
         self.assertEqual(data[:8], bytes.fromhex("0024020107000880"))
         self.assertEqual(data[8:], bytes(55))
         self.assertEqual(right_report(255)[0], 255)
+
+    def test_left_report_has_its_own_buttons(self):
+        data = left_report(256, ["UP", "L", "MINUS", "CAPTURE"])
+        self.assertEqual(len(data), 63)
+        self.assertEqual(data[:8], bytes.fromhex("0024580107000880"))
+        with self.assertRaises(KeyError):
+            left_report(buttons=["A"])
 
     def test_command(self):
         data = bytes.fromhex("159101030001000000")
