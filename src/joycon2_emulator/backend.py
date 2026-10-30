@@ -159,6 +159,9 @@ async def serve(address, transport, bond_file, seconds, calibration=None, test_b
                 if active_connection is connection:
                     active_connection = None
                     state.connected = state.ready = False
+                    state.mouse_enabled = False
+                    controller.features.mask = None
+                    controller.features.enabled = 0
                     state.registering = False
                     state.release()
                 LOG.info("Disconnected: %s; queued input released", reason)

@@ -3,7 +3,8 @@
 ## Status
 
 - Native relative optical-mouse fields in right report `0x08`: implemented,
-  command-driven, opt-in, software-tested; **not console-verified**.
+  command-driven, opt-in, software-tested. Console feature enablement was observed,
+  but **no cursor appeared** in the console's mouse tutorial. Not usable yet.
 - Desktop pointer capture/browser mouse mapping: not implemented. The removed
   mouse-to-stick mode remains removed.
 - Gyroscope/accelerometer: offline `common_motion()` encoder only, for the
@@ -15,6 +16,8 @@
 The optical surface byte is incompletely documented. Our experimental convention
 uses `0` for contact and `255` for lifted, as demonstrated in XD2Joy; it is not
 calibrated height, surface quality or confirmed Switch behavior.
+
+![Mouse tutorial awaiting native cursor input](images/mouse-test-pending.png)
 
 ## Command-Driven Native Mouse
 
@@ -69,13 +72,34 @@ codec, coherent timing/orientation and feature-configuration support are require
 before advertising gyro or adding a live gyro command. A correct `0x05` block
 alone does not prove the console will accept gyro input.
 
-## Grip Test Pending
+## Grip Test Result
 
 The owner suggested pressing **R** after connecting to register the right half
-vertically instead of SL+SR. This has not yet been verified. On Change Grip/Order,
-an isolated `./scripts/j2 press R --duration 0.1` can test it during allowed play
-time; default automatic web registration is still SL+SR. Do not recalibrate the
-physical controller or assume that R alone forms a complete two-half controller.
+vertically instead of SL+SR. During the Elgato-observed test, a 150 ms R pulse
+produced the upright L+R pair prompt in slot 1, but an A pulse did not finish
+registration. SL+SR then registered the single horizontal half and X confirmed
+normally. This does not establish usable vertical single-half operation;
+default automatic web registration remains SL+SR. No calibration was changed.
+
+## Private Sensor Capture
+
+The next investigation compares the optical surface and motion fields with an
+owned physical right Joy-Con, detached, in SYNC mode and flat on a table.
+Stop the emulator and other adapter owners before running the tool in Linux:
+
+```sh
+sudo .venv/bin/joycon2-emulator capture-sensors --peer JO:YC:ON:AD:DR:SS \
+  --output .state/sensors-flat.json --seconds 5
+```
+
+Use the physical controller's address for this direct reader, not the emulator's
+address. The tool enables runtime buttons/stick/IMU/mouse features, subscribes to
+common/right input reports, then disables those features and disconnects. It
+does not request pairing, flash access, calibration changes or firmware updates.
+Duration is limited to 1..15 seconds and at most 512 reports. Captures are written
+owner-only and existing files/symlinks are refused. Keep them in gitignored
+`.state`; do not publish captured report arrays. This reader's software tests
+do not establish that every physical firmware permits unpaired sensor streaming.
 
 ## References
 

@@ -17,6 +17,8 @@ were changed. No GameChat session was opened.
 | Screen left/right/up/down | Both source sticks, raw and sideways transform | All four moved menus in their intended directions |
 | Center / release | Expiring lease and sequence release | Menu movement stopped after each pulse |
 | Diagonals and normalized full range | Both source sticks and factory-range unit tests | Not visually certified; stick-calibration display rejected horizontal grip |
+| Native optical mouse | Opt-in signed report fields, feature gating, one-shot/expiry/socket tests | Feature 0x10 enabled on reconnect; single deltas and a six-second burst did not display a cursor in How to Use Mouse Controls |
+| R-only vertical registration | Existing bounded physical R command | Upright L+R prompt appeared; A did not finish; SL+SR restored working horizontal registration |
 
 ![All ten non-system right-half buttons detected](images/right-buttons-test.png)
 
@@ -39,7 +41,8 @@ were changed. No GameChat session was opened.
 This right-half backend does not expose a native left stick, D-pad, L/ZL, MINUS
 or Capture button. Those remain available in NXBT's Pro Controller mode, not as
 invented buttons in the right-half report. GL/GR charging-grip buttons, gyro,
-physical vibration, NFC, optical mouse and a second Joy-Con remain unimplemented.
+physical vibration, NFC and a second Joy-Con remain unimplemented. The experimental
+optical mouse report path exists, but has not produced a cursor on the console.
 Unit tests are not proof of physical controller hardware, every HID device or
 every gameplay timing path. The full-range calibration view was deliberately
 not unlocked by changing grip, and no recalibration was performed.

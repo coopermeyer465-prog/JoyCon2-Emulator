@@ -2,6 +2,20 @@
 
 ## 2026-10-30
 
+### Sensor Hardware Diagnostics
+
+- With testing available again, observed the console enabling native mouse
+  feature 0x10. Neither isolated deltas nor a six-second burst produced a cursor
+  in How to Use Mouse Controls; the feature remains experimental/not usable.
+- Tested R-only registration: an upright L+R prompt appeared, but A did not
+  complete registration. SL+SR restored normal horizontal operation.
+- Added a bounded, private physical sensor reader: fixed runtime feature commands,
+  common/right report subscriptions, 15-second/512-frame limits, owner-only output,
+  no pairing/flash/firmware operations. Physical capture is pending setup.
+- Cleared negotiated feature state on disconnect to avoid stale mouse status.
+- All 75 Python tests pass, including a mocked capture lifecycle/permissions test.
+  Restored HOME and normal NXBT/BlueZ after diagnostics; no parental settings changed.
+
 ### Experimental Native Sensor Work
 
 - Added opt-in native optical-mouse fields to right report 0x08, feature bit 4

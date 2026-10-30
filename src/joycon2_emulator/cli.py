@@ -35,6 +35,11 @@ def main():
     capture.add_argument("--peer", required=True)
     capture.add_argument("--output", type=Path, default=Path(".state/factory-calibration.json"))
     capture.add_argument("--transport", default="hci-socket:0")
+    sensors = commands.add_parser("capture-sensors", help="Private input capture; runtime feature selection only, no pairing/flash access")
+    sensors.add_argument("--peer", required=True)
+    sensors.add_argument("--output", type=Path, required=True)
+    sensors.add_argument("--transport", default="hci-socket:0")
+    sensors.add_argument("--seconds", type=int, default=5)
     control = commands.add_parser("control", help="Send one local controller command")
     control.add_argument("--socket", type=Path, default=Path(".state/control.sock"))
     actions = control.add_subparsers(dest="action", required=True)
@@ -105,6 +110,11 @@ def main():
             parser.error("Calibration capture needs the Linux HCI backend")
         from .factory_capture import capture
         asyncio.run(capture(args.peer, args.output, args.transport))
+    elif args.command == "capture-sensors":
+        if platform.system() != "Linux":
+            parser.error("Sensor capture needs the Linux HCI backend")
+        from .sensor_capture import capture
+        asyncio.run(capture(args.peer, args.output, args.transport, args.seconds))
 
 
 if __name__ == "__main__":
