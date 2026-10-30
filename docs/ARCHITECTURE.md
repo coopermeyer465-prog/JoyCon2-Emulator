@@ -6,7 +6,17 @@
 - `pairing.py`: explicit address -> key -> challenge -> finalize state machine;
   AES delegated to PyCA. Finalized records are written atomically with mode 0600.
 - `controller.py`: dispatches implemented commands; handles documented initialization
-  07/01 and delegates pairing, while rejecting unknown commands.
+  queries, virtual player-LED/vibration state and delegates pairing, memory and
+  feature masks, while rejecting unknown commands.
+- `memory.py`: generated virtual metadata, limited private calibration import,
+  opaque compatibility fields and erased virtual user-calibration slots. Never
+  responds with pairing keys or Nintendo firmware.
+- `features.py`: explicit buttons/stick feature enable/mask state. Sensors are not
+  advertised as implemented and reports wait for feature enablement.
+- `factory_capture.py`: direct BLE client, read-only four-block allowlist, no SMP
+  pairing or arbitrary flash/address commands. Output is private and gitignored.
+- `input_test.py`: allowlisted, opt-in 250 ms test pulse with an explicit release.
+  Not a live gamepad source; default hardware runs remain neutral.
 - `backend.py`: Bumble HCI-socket transport, vendor GATT services, pairing notifications,
   and a bounded neutral-report lab. The adapter keeps its own public identity.
 - `cli.py`: read-only diagnostics, local capture inspection and opt-in lab startup.
@@ -15,16 +25,19 @@
 
 ## Next Milestones
 
-1. Measure real controller/console connection negotiation. Determine whether the
-   USB controller and firmware accept a 5 ms link. Do not patch kernel limits
+1. Extend the observed 5 ms encrypted link to sustained input/stability tests.
+   A 5 ms link on one stock RTL8761BU has now been observed. Do not patch kernel limits
    or flash experimental firmware without a separate recovery plan.
 2. Handle the console initialization command sequence, report-mode/feature changes,
    and required memory reads using legitimately obtained/generated calibration.
    Do not pretend unsupported commands have succeeded.
-   Hardware testing has advanced past 07/01 to a 64-byte read at 0x13000.
-3. Validate custom Nintendo pairing, link encryption, private key persistence,
-   bond reload and reconnect across host/console restarts.
-4. Add user input with neutral-on-disconnect behavior. Reuse the existing measured
+   Hardware testing has advanced through generated metadata, firmware info,
+   Nintendo key exchange, encryption, virtual LEDs and factory calibration reads.
+3. Extend verified custom pairing/encryption/per-process bond reload to host/console
+   restart tests. Version-2 private records bind to the controller identity and
+   support separate keys for both console addresses.
+4. Extend the console-confirmed SL+SR registration test into live user input with
+   neutral-on-disconnect behavior. Reuse the existing measured
    Lic2 WebHID decoder only after auditing its provenance and adding tests.
 5. Implement a left half and decide whether one controller supports two peripheral
    connections at the required interval. One combined gamepad is not assumed.
@@ -33,7 +46,9 @@
 
 ## Current Limitations
 
-The lab exposes protocol structure, but does not synthesize Nintendo factory data,
-respond to arbitrary initialization commands, implement full input activation, or
-restore bonds. It must not be used as a replacement for a normal controller yet.
+The lab supplies generated metadata and optional privately read calibration blocks,
+but does not respond to arbitrary initialization commands or provide a live
+gamepad relay. Some opaque query responses are documented compatibility constants,
+not implementations of their unknown underlying features. It must not be used as
+a replacement for a normal controller yet.
 Stock BLE support in a USB adapter is not proof of Nintendo's below-standard timing.

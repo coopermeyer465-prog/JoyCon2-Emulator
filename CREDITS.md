@@ -3,7 +3,8 @@
 - **ndeadly / switch2_controller_research**:
   https://github.com/ndeadly/switch2_controller_research
   Primary factual reference for advertisements, GATT UUIDs/handles, command framing,
-  pairing byte order, and report fields. No research document, firmware dump,
+  pairing byte order, report fields, factory field offsets and opaque query
+  response examples. No research document, firmware dump,
   descriptor blob, or captured controller memory is vendored here. The published
   challenge vector is used as a protocol interoperability test, not as a user's key.
 - **desktopsetup / XD2Joy**:

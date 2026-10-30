@@ -6,6 +6,7 @@ are logged, not falsely acknowledged as successfully implemented.
 
 import asyncio
 import logging
+import time
 
 from bumble.device import Device, DeviceConfiguration
 from bumble.gatt import Characteristic, CharacteristicValue, Descriptor, Service
@@ -14,6 +15,7 @@ from bumble.transport import open_transport
 
 from .controller import Controller
 from .protocol import Command, advertisement, right_report
+from .input_test import ButtonPulse
 
 
 LOG = logging.getLogger(__name__)
@@ -68,7 +70,7 @@ def install_services(device, on_command):
     return inputs, response
 
 
-async def serve(address, transport, bond_file, seconds):
+async def serve(address, transport, bond_file, seconds, calibration=None, test_button=None):
     async with await open_transport(transport) as hci:
         config = DeviceConfiguration()
         config.name = "Joy-Con 2 (R)"
@@ -77,7 +79,12 @@ async def serve(address, transport, bond_file, seconds):
         config.classic_enabled = False
         device = Device.from_config_with_hci(config, hci.source, hci.sink)
         controller = Controller(address)
+        if calibration is not None:
+            controller.memory.load_calibration(calibration)
         pairing = controller.pairing
+        if bond_file.exists():
+            pairing.load(bond_file)
+            LOG.info("Loaded private bond state (keys redacted)")
         pending = set()
 
         async def process_command(connection, data, combined):
@@ -88,7 +95,9 @@ async def serve(address, transport, bond_file, seconds):
                     LOG.info("Memory read: offset=0x%08x length=%d (no memory contents logged)",
                              int.from_bytes(request.payload[4:8], "little"), request.payload[0])
                 response = controller.handle(request)
-                if pairing.finalized:
+                if request.command == 0x0C:
+                    LOG.info("Implemented input features enabled: 0x%02x", controller.features.enabled)
+                if pairing.finalized and (request.command, request.subcommand) in ((0x15, 3), (3, 9)):
                     pairing.save(bond_file)
                 await device.notify_subscribers(response_characteristic, request.response(response))
             except (ValueError, NotImplementedError) as error:
@@ -97,16 +106,23 @@ async def serve(address, transport, bond_file, seconds):
         def on_command(connection, data, combined):
             task = asyncio.create_task(process_command(connection, data, combined))
             pending.add(task)
-            task.add_done_callback(pending.discard)
+            task.add_done_callback(command_done)
+
+        def command_done(task):
+            pending.discard(task)
+            if not task.cancelled() and (error := task.exception()) is not None:
+                LOG.error("Command task failed (%s); payload redacted", type(error).__name__)
 
         inputs, response_characteristic = install_services(device, on_command)
+        center_x, center_y = controller.memory.primary_center()
+        inputs.value = right_report(x=center_x, y=center_y)
 
         async def provide_ltk(handle, rand, ediv):
             connection = device.lookup_connection(handle)
             if connection and pairing.finalized:
                 peer = bytes(connection.peer_address)
                 if peer in pairing.hosts:
-                    return pairing.ltk
+                    return pairing.host_keys.get(peer)
             return None
 
         device.host.long_term_key_provider = provide_ltk
@@ -116,22 +132,45 @@ async def serve(address, transport, bond_file, seconds):
             LOG.info("Connection parameters: %s", connection.parameters)
             connection.on("connection_parameters_update",
                           lambda: LOG.info("Connection parameters updated: %s", connection.parameters))
+            connection.on("connection_encryption_change",
+                          lambda: LOG.info("Link encryption active: %s", connection.is_encrypted))
             connection.on("disconnection", lambda reason: LOG.info("Disconnected: %s", reason))
 
         device.on("connection", connected)
         await device.power_on()
         if bytes(device.public_address) != bytes(Address(address)):
             raise ValueError("--address must match this adapter's own public address; do not clone a Joy-Con")
+        host_address = (":".join(f"{byte:02X}" for byte in pairing.hosts[0][::-1])
+                        if pairing.finalized else None)
         await device.start_advertising(own_address_type=OwnAddressType.PUBLIC,
-                                       advertising_data=advertisement(), scan_response_data=b"",
+                                       advertising_data=advertisement(host=host_address), scan_response_data=b"",
                                        auto_restart=True)
         LOG.warning("LAB ONLY: advertising right Joy-Con 2 for %d seconds; playable initialization is incomplete", seconds)
         try:
             # Neutral reports only. External gamepad/WebHID input is a later milestone.
-            for counter in range(seconds * 100):
-                if pairing.finalized:
-                    await device.notify_subscribers(inputs, right_report(counter))
+            queued_reports = 0
+            stream_start = None
+            pulse = ButtonPulse(test_button) if test_button else None
+            pulse_sent = False
+            counter = 0
+            deadline = time.monotonic() + seconds
+            while time.monotonic() < deadline:
+                subscribed = any(values.get(inputs.handle, b"\x00\x00")[0] & 1
+                                 for values in device.gatt_server.subscribers.values())
+                if pairing.finalized and controller.features.enabled and subscribed:
+                    if queued_reports == 0:
+                        stream_start = time.monotonic()
+                        LOG.info("Subscribed right-report stream enabled")
+                    buttons = pulse.at(time.monotonic() - stream_start) if pulse else ()
+                    if buttons and not pulse_sent:
+                        pulse_sent = True
+                        LOG.info("Sending opt-in %s test pulse for 250 ms", test_button)
+                    await asyncio.wait_for(device.notify_subscribers(
+                        inputs, right_report(counter, buttons, x=center_x, y=center_y)), 2)
+                    queued_reports += 1
+                counter += 1
                 await asyncio.sleep(0.01)
+            LOG.info("Queued %d reports; console input effects require user confirmation", queued_reports)
         finally:
             await device.stop_advertising()
             for task in pending:

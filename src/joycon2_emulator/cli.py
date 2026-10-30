@@ -25,10 +25,17 @@ def main():
     lab.add_argument("--transport", default="hci-socket:0")
     lab.add_argument("--bond-file", type=Path, default=Path(".state/bond.json"))
     lab.add_argument("--seconds", type=int, default=60)
+    lab.add_argument("--calibration", type=Path, help="Private allowlisted factory-data capture")
+    lab.add_argument("--test-button", choices=("join", "home", "a", "b"),
+                     help="Send one 250 ms pulse after subscribed input starts; join means SL+SR")
+    capture = commands.add_parser("capture-calibration", help="Read four factory blocks; no pairing/flash writes")
+    capture.add_argument("--peer", required=True)
+    capture.add_argument("--output", type=Path, default=Path(".state/factory-calibration.json"))
+    capture.add_argument("--transport", default="hci-socket:0")
     args = parser.parse_args()
     if args.command == "doctor":
         print(json.dumps({"platform": platform.system(), "playable": False,
-                          "usb_5ms_connection_support": "unverified",
+                          "usb_5ms_connection_support": "observed on one RTL8761BU; not a general compatibility guarantee",
                           "wake_reliability": "old prototype regressed; revised burst test passed once"}))
         if platform.system() == "Linux":
             subprocess.run(["hciconfig", "-a"], check=True)
@@ -44,7 +51,13 @@ def main():
             parser.error("Serve needs Linux and --seconds between 1 and 300")
         from .backend import serve
         logging.basicConfig(level=logging.INFO)
-        asyncio.run(serve(args.address, args.transport, args.bond_file, args.seconds))
+        asyncio.run(serve(args.address, args.transport, args.bond_file, args.seconds,
+                          args.calibration, args.test_button))
+    elif args.command == "capture-calibration":
+        if platform.system() != "Linux":
+            parser.error("Calibration capture needs the Linux HCI backend")
+        from .factory_capture import capture
+        asyncio.run(capture(args.peer, args.output, args.transport))
 
 
 if __name__ == "__main__":

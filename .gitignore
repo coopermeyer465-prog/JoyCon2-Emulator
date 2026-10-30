@@ -12,3 +12,5 @@ captures/
 *bond*.json
 *wake-scan*.json
 *backup*
+factory*.json
+calibration*.json

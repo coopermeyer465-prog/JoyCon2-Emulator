@@ -14,18 +14,20 @@ Bluetooth captures, or pairing keys are distributed.
 | Component | Current state |
 | --- | --- |
 | Nintendo discovery/reconnect/wake advertisement encoding | Implemented, unit tested |
-| Right Joy-Con 2 button/stick report encoding | Implemented, unit tested; not console validated |
-| Nintendo command framing and pairing challenge/response | Implemented, known-vector tested |
+| Right Joy-Con 2 button/stick report encoding | Implemented; user confirmed SL+SR registered a single right Joy-Con; live relay still absent |
+| Nintendo command framing and pairing challenge/response | Implemented; completed exchange with one console |
 | Vendor GATT database with expected attribute handles | Implemented on Bumble; layout tested |
 | Bounded Linux BLE peripheral lab | Implemented; hardware results in docs/HARDWARE.md |
-| Console discovery and initial command exchange | Console connected at 15 ms; accepted documented 07/01 response |
+| Console discovery and initial command exchange | Console accepted metadata/version queries and advanced through calibration reads |
 | Stock USB adapter sleep wake | Local prototype and revised connectable/three-burst test both woke one console |
 | Reliable sleep wake after physical Joy-Con docking | Old prototype regressed; revised test passed once, repeat reliability unproven |
-| 5 ms connection interval on Realtek RTL8761BU | Unverified; possible hardware/firmware blocker |
-| Console initialization, calibration/flash responses | First 07/01 handled; next request is 64 bytes at 0x13000, not implemented |
-| Bond reload, reliable reconnect, LTK interoperability | Not validated; bond reload not implemented |
+| 5 ms connection interval on Realtek RTL8761BU | Observed on the test adapter, including an encrypted connection; sustained gameplay untested |
+| Console initialization, calibration/flash responses | Generated metadata, allowlisted private calibration import, erased user-calibration slots; incomplete overall |
+| Bond reload and LTK interoperability | Implemented per-address keys; encrypted reconnect observed after process restart; long-term reliability untested |
+| Player LEDs and vibration requests | Virtual state/sink only, no physical output |
+| Opt-in button smoke tests | Bounded 250 ms join/HOME/A/B pulses; only join console-confirmed so far |
 | Live gamepad/WebHID relay, left/right combined controller | Not implemented |
-| Gyro, mouse, rumble, NFC, firmware updates | Not implemented |
+| Gyro, mouse, physical rumble, NFC, firmware updates | Not implemented |
 
 This is **not a port of XD2Joy firmware to a USB dongle** and is not an NXBT fork.
 It uses [Bumble](https://github.com/google/bumble) for the BLE host/GATT engine.
@@ -54,7 +56,7 @@ Bluetooth adapter passed through. Never pass through the Mac's internal radio.
 
 ## Experimental Peripheral Lab
 
-**This cannot control games yet.** It is intended to collect the next missing
+**This is not a full gameplay controller yet.** It is intended to collect missing
 initialization steps and determine whether the adapter can hold a BLE link.
 Use the adapter's own address, NOT the address of a physical Joy-Con.
 
@@ -79,7 +81,42 @@ Replace `AD:AP:TE:RS:MA:CC` with the actual adapter address (the placeholder is
 deliberately invalid). Do not run wake, NXBT, or a second emulator simultaneously
 on the same adapter. The experimental backend handles one right Joy-Con only.
 It stores newly finalized pairing material under `.state/bond.json` with owner-only
-permissions, but reconnecting from a saved bond is a future milestone.
+permissions and reloads them on startup. The console can supply different keys for
+its two host addresses; these are stored separately. Do not clear this file just
+to rerun the lab. Existing version-1 single-key files migrate when next saved.
+
+By default the lab sends neutral reports only after the console subscribes and
+enables the implemented input features. To send one explicit SL+SR registration
+pulse, add `--test-button join` to `serve`. Alternatives are `home`, `a` and `b`.
+The pulse starts two seconds after the subscribed report stream starts, lasts
+250 ms, then releases. Keep the console on the appropriate screen before starting.
+This is a diagnostic input test, not the live Lic2/WebHID relay.
+
+## Private Calibration Capture
+
+Without calibration data the lab stops at the first unsupported factory read.
+The optional reader connects to your owned right Joy-Con without requesting SMP
+or Nintendo pairing. It issues only memory-read command 02/04 for four 64-byte
+factory blocks at 0x13080, 0x130C0, 0x13100 and 0x13140. It never requests the
+pairing-key region or firmware banks and exposes no flash-write operation.
+
+Stop BlueZ/NXBT and bring hci0 down as in the lab example. Detach the physical
+Joy-Con, hold SYNC until its LEDs cycle, then run these commands in that same
+root shell, replacing the placeholders with real local addresses:
+
+```sh
+.venv/bin/joycon2-emulator capture-calibration --peer JO:YC:ON:AD:DR:SS --output .state/factory-calibration.json
+.venv/bin/joycon2-emulator serve --experimental --address AD:AP:TE:RS:MA:CC --calibration .state/factory-calibration.json --seconds 60
+```
+
+The file is owner-only, excluded from Git and not shipped with this repo. The
+reader refuses to overwrite it. The importer accepts only those four exact
+blocks, so a firmware dump or pairing-key file cannot be imported through it.
+The emulator retains generated serial/colors and the USB adapter's own identity.
+Neutral reports use the imported primary stick center rather than assuming 2048.
+Custom user-calibration slots are represented as erased; no physical calibration
+is changed. The meaning of some factory fields remains unknown, so compatibility
+is experimental and is not a claim of complete, faithful Joy-Con emulation.
 
 ## Wake Prototype And Regression
 
