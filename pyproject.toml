@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "joycon2-emulator"
+version = "0.1.0"
+description = "Experimental Joy-Con 2 BLE peripheral and protocol research tools"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "GPL-3.0-only"
+dependencies = ["bumble==0.0.235", "cryptography>=41"]
+
+[project.scripts]
+joycon2-emulator = "joycon2_emulator.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
