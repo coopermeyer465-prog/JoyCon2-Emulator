@@ -26,7 +26,7 @@ Bluetooth captures, or pairing keys are distributed.
 | Bond reload and LTK interoperability | Implemented per-address keys; encrypted reconnect observed after process restart; long-term reliability untested |
 | Player LEDs and vibration requests | Virtual state/sink only, no physical output |
 | Opt-in button smoke tests | HOME 50 ms, join/A/B 250 ms; join confirmed; old HOME pulse opened Quick Settings |
-| Command-driven buttons/right stick | Implemented with timed release, sequences and a private local socket; console behavior under test |
+| Command-driven buttons/right stick | Timed release, sequences and private local socket implemented; 50 ms HOME tap confirmed after transmit-queue fix; stick behavior unverified |
 | Live gamepad/WebHID relay, left/right combined controller | Not implemented |
 | Gyro, mouse, physical rumble, NFC, firmware updates | Not implemented |
 

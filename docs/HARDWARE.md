@@ -114,3 +114,9 @@ does not await HCI transmit completion. The input loop now drains the connection
 ACL queue after each report to prevent unbounded report backlog. This is a
 candidate timing fix, not yet console-validated; HCI completion is not an
 application-level acknowledgement from the console.
+
+After installing the queue-drain change and reconnecting, a command-driven 50 ms
+HOME tap from System Settings returned to HOME, confirmed by the user. The log
+showed one pressed report followed by neutral, with HCI completion awaited. This
+validates one short-HOME trial on this setup, not general input latency, repeat
+reliability or right-stick behavior.
