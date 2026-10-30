@@ -123,6 +123,7 @@ let nativeMouseSeen = false;
 let mouseBusy = false;
 let mouseCapturePending = false;
 const virtualPresses = new Map();
+let gestureRightStick = null;
 let hidDevice = null;
 let hidLayouts = null;
 let hidState = null;
@@ -152,6 +153,10 @@ function sendInputIfChanged() {
         const stick = outgoing[mouseStick.target === "left" ? "L_STICK" : "R_STICK"];
         stick.X_VALUE = mouseStick.x; stick.Y_VALUE = mouseStick.y;
     }
+    if (gestureRightStick && gestureRightStick.until > now) {
+        outgoing.R_STICK.X_VALUE = gestureRightStick.x;
+        outgoing.R_STICK.Y_VALUE = gestureRightStick.y;
+    } else gestureRightStick = null;
     const changed = JSON.stringify(outgoing) !== JSON.stringify(INPUT_PACKET_OLD);
     const joycon = ACTIVE_BACKEND === "joycon2_right";
     if (joycon && STATE?.[NXBT_CONTROLLER_INDEX]?.state !== ControllerState.CONNECTED) return;
@@ -388,8 +393,16 @@ document.getElementById("mouse-gain").addEventListener("input", event => {
 });
 mouseSurface.addEventListener("click", beginMouseCapture);
 document.addEventListener("mousemove", event => {
-    if (document.pointerLockElement === mouseSurface) mouseInput.move(event.movementX, event.movementY, performance.now());
+    if (document.pointerLockElement !== mouseSurface) return;
+    const now = performance.now();
+    mouseInput.move(event.movementX, event.movementY, now);
+    if (event.buttons & 1) setGestureRightStick(event.movementX, event.movementY, now);
 });
+document.addEventListener("wheel", event => {
+    if (!mouseInput.active || document.pointerLockElement !== mouseSurface) return;
+    event.preventDefault();
+    setGestureRightStick(event.deltaX, event.deltaY, performance.now());
+}, {passive: false});
 document.addEventListener("pointerlockchange", () => {
     if (document.pointerLockElement === mouseSurface) activateLockedMouse();
     else if (mouseInput.active || mouseCapturePending) { stopMouseCapture(); sendInputIfChanged(); }
@@ -694,6 +707,13 @@ function tapPro(button) {
     virtualPresses.set(button, performance.now() + 90);
     sendInputIfChanged();
     setTimeout(sendInputIfChanged, 100);
+}
+
+function setGestureRightStick(dx, dy, now) {
+    const scale = Math.max(0.25, Math.min(4, mouseInput.gain)) * 0.4;
+    const clamp = value => Math.max(-100, Math.min(100, Math.round(value)));
+    gestureRightStick = {x: clamp(dx * scale), y: clamp(-dy * scale), until: now + 120};
+    sendInputIfChanged();
 }
 
 function shutdownController() {
