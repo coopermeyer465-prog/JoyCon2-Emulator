@@ -2,6 +2,20 @@
 
 ## 2026-10-30
 
+### Recorded-Motion Cursor Diagnostic
+
+- Added isolated, bounded private compact sensor playback. Captured buttons,
+  sticks, power and reserved fields are discarded; only sensor fields enter
+  generated neutral reports. No capture arrays are published.
+- The owner confirmed a cursor from full sensor playback, then confirmed a cursor
+  from command-driven mouse deltas with moving recorded motion. A stationary
+  baseline experiment did not produce a cursor. Delta sizes also differed, so
+  the exact required motion fields remain unresolved.
+- Default controller behavior remains buttons/stick-only. Recorded diagnostics
+  are explicit Linux serve options, limited to 30 seconds, not live gyro support.
+- All 92 Python tests pass, including sensor-field isolation, playback bounds,
+  feature gating, timing validation and rejection of diagnostic button commands.
+
 ### Compact Capture and Mouse Follow-Up
 
 - Added native `--report right` capture with distinct frame labels and self-tests.

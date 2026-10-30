@@ -17,6 +17,13 @@ contact lease active, also produced no visible change according to the owner.
 A later tutorial burst used raw surface value 50, within the physical controller's
 observed range, and also produced no visible change. Surface-byte adjustment
 alone has not established usable mouse emulation.
+The physical controller subsequently produced a cursor in the same tutorial.
+An isolated emulator replay of private recorded optical/motion fields produced
+a cursor with the physical controller untouched. A stationary motion baseline
+with refreshed timing and command optical deltas of +/-5 did not. Moving recorded
+motion with command-generated optical deltas of +/-100 did produce a cursor.
+This establishes a working recorded-motion diagnostic, not independent/generated
+motion support; the effect of delta magnitude has not been isolated.
 
 | Input | Software verification | Console observation |
 | --- | --- | --- |
@@ -30,7 +37,7 @@ alone has not established usable mouse emulation.
 | Screen left/right/up/down | Both source sticks, raw and sideways transform | All four moved menus in their intended directions |
 | Center / release | Expiring lease and sequence release | Menu movement stopped after each pulse |
 | Diagonals and normalized full range | Both source sticks and factory-range unit tests | Not visually certified; stick-calibration display rejected horizontal grip |
-| Native optical mouse | Opt-in signed report fields, feature gating, one-shot/expiry/socket tests | Feature 0x10 enabled on reconnect; single deltas and a six-second burst did not display a cursor in How to Use Mouse Controls |
+| Native optical mouse | Opt-in signed fields, feature gating, one-shot/expiry/socket and sanitized replay tests | Mouse-only commands fail; command mouse with private recorded moving motion produced a cursor in the tutorial |
 | R-only vertical registration | Existing bounded physical R command | Upright L+R prompt appeared; A did not finish; SL+SR restored working horizontal registration |
 
 ![All ten non-system right-half buttons detected](images/right-buttons-test.png)
@@ -55,7 +62,8 @@ This right-half backend does not expose a native left stick, D-pad, L/ZL, MINUS
 or Capture button. Those remain available in NXBT's Pro Controller mode, not as
 invented buttons in the right-half report. GL/GR charging-grip buttons, gyro,
 physical vibration, NFC and a second Joy-Con remain unimplemented. The experimental
-optical mouse report path exists, but has not produced a cursor on the console.
+optical mouse report path needs private recorded moving motion for the successful
+diagnostic combination; default generated reports have not produced a cursor.
 Unit tests are not proof of physical controller hardware, every HID device or
 every gameplay timing path. The full-range calibration view was deliberately
 not unlocked by changing grip, and no recalibration was performed.

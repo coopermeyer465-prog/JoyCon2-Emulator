@@ -53,6 +53,7 @@ class InputState:
         self.pending_mouse = None
         self.mouse_contact_until = 0
         self.mouse_surface = 255
+        self.mouse_only = False
 
     def clear_mouse(self):
         self.pending_mouse = None
@@ -115,7 +116,7 @@ class InputState:
                 raise ValueError("A mouse movement is already pending")
             self.pending_mouse = ((dx, dy, 255 if lifted else surface), now + 0.25)
         elif operation in ("set", "sequence"):
-            if not self.ready or self.registering or self.stopping:
+            if not self.ready or self.registering or self.stopping or self.mouse_only:
                 raise ValueError("Controller is not ready; no input was queued")
             values = [request.get("state")] if operation == "set" else request.get("steps")
             if not isinstance(values, list) or not 1 <= len(values) <= 256:

@@ -4,13 +4,16 @@
 
 - Native relative optical-mouse fields in right report `0x08`: implemented,
   command-driven, opt-in, software-tested. Console feature enablement was observed,
-  but **no cursor appeared** in the console's mouse tutorial. Not usable yet.
+  but the generated mouse-only path has not produced a cursor. A bounded private
+  recorded-motion diagnostic did produce a cursor, including with command-driven
+  mouse fields. This is not standalone mouse emulation yet.
 - Desktop pointer capture/browser mouse mapping: not implemented. The removed
   mouse-to-stick mode remains removed.
 - Gyroscope/accelerometer: offline `common_motion()` encoder only, for the
   documented 18-byte IMU block in common report `0x05`. It is not connected to
   the BLE stream and is not a usable console gyro input.
-- Compact `0x08` motion data: not implemented. IMU feature bit 2 stays disabled.
+- Generated compact `0x08` motion data: not implemented. IMU feature bit 2 stays
+  disabled by default; only explicit private recorded-sensor diagnostics enable it.
 - Existing buttons/stick and default feature negotiation remain unchanged.
 
 The optical surface byte is incompletely documented. Our experimental convention
@@ -77,6 +80,53 @@ captured frames or Nintendo XData are copied here. A complete generated compact
 codec, coherent timing/orientation and feature-configuration support are required
 before advertising gyro or adding a live gyro command. A correct `0x05` block
 alone does not prove the console will accept gyro input.
+
+## Private Recorded-Sensor Diagnostics
+
+The owner confirmed a cursor with the physical controller in the same tutorial.
+A subsequent emulator-only replay of private recorded mouse and motion fields
+also produced a cursor. Replacing recorded optical fields with command-generated
+X deltas of +100 then -100, surface 50, while keeping the moving motion recording,
+also produced a cursor with the physical controller untouched.
+
+A separate experiment used a single stationary motion sample with refreshed
+12-bit timestamp/interval fields and command X deltas of +5 then -5, surface 50.
+That produced no visible change. These tests differ in both motion source and
+delta magnitude, so they do not isolate the exact cause. Neither is a generated
+motion codec or a calibrated/live gyro implementation.
+
+The isolated Linux diagnostic accepts a private native compact capture:
+
+```sh
+joycon2-emulator serve --experimental --address ADAPTER_OWN_PUBLIC_ADDRESS \
+  --calibration .state/factory-calibration.json --seconds 25 \
+  --experimental-sensor-replay .state/private-compact-moving.json
+```
+
+Only optical fields and the 40-byte motion block/length are read into generated
+neutral controller reports. Captured buttons, sticks, power and reserved fields
+are never transmitted. At most 2048 frames / 2 MiB are accepted, startup frames
+without motion are skipped, samples are consumed once without looping, and
+runtime is limited to 1..30 seconds. Playback uses backend report cadence without
+resampling; it is not timing-faithful physical-controller emulation. Recorded
+motion timing is retained in full replay mode.
+
+Add `--replay-command-mouse --control-socket .state/sensor-test.sock` to replace
+recorded optical data with local mouse commands, for example:
+
+```sh
+joycon2-emulator control --socket .state/sensor-test.sock mouse --dx 100 --surface 50
+joycon2-emulator control --socket .state/sensor-test.sock release
+```
+
+Alternatively, `--experimental-motion-baseline .state/private-compact-stationary.json`
+selects the failed stationary-baseline experiment. It does not claim that the
+retained opaque motion block is valid generated orientation data. Both modes
+keep controls neutral and reject button/stick commands, auto-join and diagnostic
+button pulses. Feature configuration commands not implemented by the backend
+remain rejected, not silently acknowledged. Neither mode is enabled by `j2 start`,
+the desktop launchers or the web UI. Keep captures private; no sensor arrays
+or keys are distributed with this code.
 
 ## Grip Test Result
 
@@ -164,8 +214,8 @@ adjustment established usable mouse emulation.
 
 Offline checks of the compact captures found that candidate fixed gyro/sample
 offsets from XD2Joy did not yield coherent stationary readings for this capture.
-Their interpretation is not validated here; no guessed gyro values, copied
-motion frames or fabricated IMU capability have been added to the BLE stream.
+Their interpretation is not validated here. The normal stream contains no guessed
+gyro values; explicit private recorded-sensor diagnostics are separate from it.
 
 Put exactly one owned right Joy-Con into SYNC mode first. Discovery filters for
 the right-half product and a zeroed reconnect-host field; multiple matching

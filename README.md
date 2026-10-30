@@ -54,8 +54,8 @@ through the owner's capture card. Native optical-mouse mode is not included.
 | Command-driven buttons/right stick | Timed release, sequences and private local socket implemented; 50 ms HOME tap confirmed after transmit-queue fix; stick behavior unverified |
 | NXBT web integration | Pro / Joy-Con 2 (R) selector; bounded input bridge; one backend per adapter |
 | Left/right combined controller | Not implemented; neither one-radio nor two-radio pair is validated |
-| Native optical mouse | Console enables feature; no cursor in tutorial yet; experimental command/report path only |
-| Gyro | Offline common-report codec only; no live gyro support |
+| Native optical mouse | Command mouse produced a cursor with private moving-motion playback; generated mouse-only reports still fail |
+| Gyro | Offline common codec and private recorded-motion diagnostics; no generated/live gyro support |
 | Native Mac sensor capture | Common and compact right-half reports captured privately, stationary and moving; no pairing requested |
 | Physical rumble, NFC, firmware updates | Not implemented |
 

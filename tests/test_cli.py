@@ -29,3 +29,18 @@ class CliTests(unittest.TestCase):
                 contextlib.redirect_stdout(io.StringIO()):
             main()
         self.assertEqual(send.call_args.args[1]["surface"], 50)
+
+    def test_recorded_sensor_modes_reject_unbounded_or_conflicting_controls(self):
+        cases = [
+            ["--experimental-sensor-replay", "private.json", "--seconds", "0", "--control-socket", "input.sock"],
+            ["--experimental-sensor-replay", "private.json", "--seconds", "20", "--auto-join"],
+            ["--experimental-motion-baseline", "private.json", "--seconds", "31"],
+            ["--experimental-motion-baseline", "private.json", "--seconds", "20", "--test-button", "home"],
+        ]
+        for extra in cases:
+            with self.subTest(extra=extra), \
+                    patch("sys.argv", ["j2", "serve", "--experimental", "--address", "00:11:22:33:44:55", *extra]), \
+                    patch("joycon2_emulator.cli.platform.system", return_value="Linux"), \
+                    contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit) as error:
+                main()
+            self.assertEqual(error.exception.code, 2)

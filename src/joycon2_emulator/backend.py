@@ -81,7 +81,18 @@ def install_services(device, on_command):
 
 
 async def serve(address, transport, bond_file, seconds, calibration=None, test_button=None, control_socket=None,
-                auto_join=False, experimental_mouse=False):
+                auto_join=False, experimental_mouse=False, sensor_replay=None, motion_baseline=None,
+                replay_command_mouse=False):
+    replay = None
+    if replay_command_mouse and sensor_replay is None:
+        raise ValueError("Command mouse playback needs a private sensor replay")
+    if sensor_replay is not None or motion_baseline is not None:
+        if ((sensor_replay is not None and ((control_socket and not replay_command_mouse) or motion_baseline is not None))
+                or test_button or auto_join or not 1 <= seconds <= 30):
+            raise ValueError("Recorded sensors require 1..30 seconds, no pulses/auto-join; sockets require command mouse")
+        from .sensor_replay import SensorReplay
+        replay = SensorReplay(sensor_replay if sensor_replay is not None else motion_baseline)
+        experimental_mouse = True
     async with await open_transport(transport) as hci:
         config = DeviceConfiguration()
         config.name = "Joy-Con 2 (R)"
@@ -89,7 +100,7 @@ async def serve(address, transport, bond_file, seconds, calibration=None, test_b
         config.gap_service_enabled = config.gatt_service_enabled = False
         config.classic_enabled = False
         device = Device.from_config_with_hci(config, hci.source, hci.sink)
-        controller = Controller(address, mouse=experimental_mouse)
+        controller = Controller(address, mouse=experimental_mouse, sensor_replay=replay is not None)
         if calibration is not None:
             controller.memory.load_calibration(calibration)
         pairing = controller.pairing
@@ -99,6 +110,7 @@ async def serve(address, transport, bond_file, seconds, calibration=None, test_b
         pending = set()
         state = InputState()
         state.mouse_supported = experimental_mouse
+        state.mouse_only = replay is not None
         active_connection = None
 
         async def process_command(connection, data, combined):
@@ -193,6 +205,7 @@ async def serve(address, transport, bond_file, seconds, calibration=None, test_b
             join_until = 0
             join_pressed = False
             counter = 0
+            last_motion_ms = None
             deadline = time.monotonic() + seconds if seconds else float("inf")
             while time.monotonic() < deadline and not state.stopping:
                 subscribed = any(values.get(inputs.handle, b"\x00\x00")[0] & 1
@@ -231,8 +244,26 @@ async def serve(address, transport, bond_file, seconds, calibration=None, test_b
                         LOG.info("Sending opt-in %s test pulse for %d ms", test_button, pulse.duration_ms)
                     raw_x, raw_y = controller.memory.logical_stick(x, y)
                     mouse = state.take_mouse(time.monotonic())
+                    report = right_report(counter, buttons, x=raw_x, y=raw_y, mouse=mouse)
+                    if replay is not None and controller.features.enabled & 0x14 == 0x14:
+                        if queued_reports == 0:
+                            LOG.warning("Private sensor playback; controls neutral; recorded motion is not live gyro")
+                        if motion_baseline is not None:
+                            now_ms = int(time.monotonic() * 1000)
+                            interval = min(4095, max(1, now_ms - last_motion_ms)) if last_motion_ms is not None else 15
+                            last_motion_ms = now_ms
+                            report = replay.baseline_report(
+                                right_report(counter, x=center_x, y=center_y, mouse=mouse),
+                                controller.features.enabled, now_ms, interval)
+                        else:
+                            report = replay.next_report(
+                                right_report(counter, x=center_x, y=center_y,
+                                             mouse=mouse if replay_command_mouse else None),
+                                controller.features.enabled, command_mouse=replay_command_mouse)
+                        if report is None:
+                            break
                     await asyncio.wait_for(notify_input(device, active_connection,
-                        inputs, right_report(counter, buttons, x=raw_x, y=raw_y, mouse=mouse)), 2)
+                        inputs, report), 2)
                     current_input = (buttons, x, y)
                     if current_input != last_input:
                         LOG.info("Input transition queued: generation=%d buttons=%s x=%.3f y=%.3f; "
@@ -245,6 +276,10 @@ async def serve(address, transport, bond_file, seconds, calibration=None, test_b
                 counter += 1
                 await asyncio.sleep(0.01)
             LOG.info("Queued %d reports; console input effects require user confirmation", queued_reports)
+            if replay is not None and motion_baseline is None:
+                LOG.info("Consumed %d private sensor samples once; no captured controls sent", replay.index)
+            elif motion_baseline is not None:
+                LOG.info("Private stationary baseline diagnostic finished; not generated/live gyro")
         finally:
             state.release()
             if state.ready:

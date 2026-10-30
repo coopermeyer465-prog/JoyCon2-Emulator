@@ -28,6 +28,13 @@ def main():
     lab.add_argument("--control-socket", type=Path, help="Owner-only local command socket; permits --seconds 0")
     lab.add_argument("--auto-join", action="store_true", help="Send SL+SR once after each initialized connection")
     lab.add_argument("--experimental-mouse", action="store_true", help="Advertise native optical mouse (unverified on console)")
+    recorded = lab.add_mutually_exclusive_group()
+    recorded.add_argument("--experimental-sensor-replay", type=Path,
+                     help="Isolated private compact sensor playback, max 30 seconds; not live gyro")
+    recorded.add_argument("--experimental-motion-baseline", type=Path,
+                          help="Private stationary motion baseline with command mouse, max 30 seconds; not live gyro")
+    lab.add_argument("--replay-command-mouse", action="store_true",
+                     help="With sensor replay, replace recorded mouse fields with socket commands")
     lab.add_argument("--calibration", type=Path, help="Private allowlisted factory-data capture")
     lab.add_argument("--test-button", choices=("join", "home", "a", "b"),
                      help="Send one pulse after subscribed input starts (HOME 50 ms, others 250 ms); join means SL+SR")
@@ -84,11 +91,20 @@ def main():
             parser.error("Serve needs Linux; use 1..300 seconds or 0 with --control-socket")
         if (args.control_socket or args.auto_join) and args.test_button:
             parser.error("Diagnostic pulses cannot be combined with a command socket or auto-join")
+        if args.replay_command_mouse and not args.experimental_sensor_replay:
+            parser.error("--replay-command-mouse requires --experimental-sensor-replay")
+        if args.experimental_sensor_replay and (not 1 <= args.seconds <= 30 or (args.control_socket and not args.replay_command_mouse)
+                                                or args.auto_join or args.test_button):
+            parser.error("Sensor replay needs 1..30 seconds and no command socket, auto-join or test button")
+        if args.experimental_motion_baseline and (not 1 <= args.seconds <= 30 or args.auto_join or args.test_button):
+            parser.error("Motion baseline needs 1..30 seconds and no auto-join or test button")
         from .backend import serve
         logging.basicConfig(level=logging.INFO)
         asyncio.run(serve(args.address, args.transport, args.bond_file, args.seconds,
                           args.calibration, args.test_button, args.control_socket, args.auto_join,
-                          args.experimental_mouse))
+                          args.experimental_mouse, sensor_replay=args.experimental_sensor_replay,
+                          motion_baseline=args.experimental_motion_baseline,
+                          replay_command_mouse=args.replay_command_mouse))
     elif args.command == "control":
         from .control import send
         request = {"op": args.action}

@@ -4,8 +4,8 @@
 class Features:
     SUPPORTED = 3
 
-    def __init__(self, mouse=False):
-        self.supported = self.SUPPORTED | (0x10 if mouse else 0)
+    def __init__(self, mouse=False, sensor_replay=False):
+        self.supported = self.SUPPORTED | (0x10 if mouse else 0) | (4 if sensor_replay else 0)
         self.mask = None
         self.enabled = 0
 
@@ -17,6 +17,7 @@ class Features:
             info = bytearray(12)
             info[4] = 7 if flags & 1 else 0
             info[5] = 7 if flags & 2 else 0
+            info[6] = 3 if flags & self.supported & 4 else 0
             info[8] = 3 if flags & self.supported & 0x10 else 0
             return bytes(info)
         if subcommand == 2:
