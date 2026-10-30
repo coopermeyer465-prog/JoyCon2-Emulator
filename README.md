@@ -53,7 +53,9 @@ through the owner's capture card. Native optical-mouse mode is not included.
 | Command-driven buttons/right stick | Timed release, sequences and private local socket implemented; 50 ms HOME tap confirmed after transmit-queue fix; stick behavior unverified |
 | NXBT web integration | Pro / Joy-Con 2 (R) selector; bounded input bridge; one backend per adapter |
 | Left/right combined controller | Not implemented; neither one-radio nor two-radio pair is validated |
-| Gyro, mouse, physical rumble, NFC, firmware updates | Not implemented |
+| Native optical mouse | Opt-in command/report implementation; not console-verified; no browser mapping |
+| Gyro | Offline common-report codec only; no live gyro support |
+| Physical rumble, NFC, firmware updates | Not implemented |
 
 This is **not a port of XD2Joy firmware to a USB dongle** and is not an NXBT fork.
 It uses [Bumble](https://github.com/google/bumble) for the BLE host/GATT engine.
@@ -67,7 +69,8 @@ The BLE backend has observed encrypted 5 ms and 15 ms links. It does not use the
 Mac's internal Bluetooth or native CoreBluetooth APIs.
 
 One right half means one stick and right-side buttons, not a Pro Controller's
-full two-stick layout. Gyro, mouse, NFC and physical rumble are absent. Positive
+full two-stick layout. Live gyro, NFC and physical rumble are absent. Experimental
+native mouse and sensor limitations are described in [sensor inputs](docs/SENSORS.md). Positive
 raw X moved down when registered sideways; opt-in `sideways-right` mapping
 produced screen-right movement, but the other mapped directions still need
 isolated checks. A 200 ms movement traveled farther than intended; use short

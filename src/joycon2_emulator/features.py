@@ -1,10 +1,11 @@
-"""Feature-mask state for the currently implemented buttons and stick."""
+"""Feature-mask state; native mouse is an explicit experimental opt-in."""
 
 
 class Features:
     SUPPORTED = 3
 
-    def __init__(self):
+    def __init__(self, mouse=False):
+        self.supported = self.SUPPORTED | (0x10 if mouse else 0)
         self.mask = None
         self.enabled = 0
 
@@ -16,9 +17,10 @@ class Features:
             info = bytearray(12)
             info[4] = 7 if flags & 1 else 0
             info[5] = 7 if flags & 2 else 0
+            info[8] = 3 if flags & self.supported & 0x10 else 0
             return bytes(info)
         if subcommand == 2:
-            self.mask = flags & self.SUPPORTED
+            self.mask = flags & self.supported
             self.enabled &= self.mask
         elif subcommand == 3:
             self.mask = None

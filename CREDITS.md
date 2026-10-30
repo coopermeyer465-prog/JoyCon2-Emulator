@@ -12,6 +12,8 @@
   GPL-3.0 firmware demonstrating Joy-Con 2 emulation on nRF52840 and documenting
   the 5 ms timing requirement. Its pairing handler was consulted to cross-check
   response framing/key byte order. No C firmware or Nintendo XData blobs are copied.
+  Its mouse delta packing/lift-byte convention was also consulted for the
+  experimental native mouse path. Its capture-based gyro path is not imported.
   This repository does not claim the author's hardware compatibility or features.
 - **Google / Bumble**: https://github.com/google/bumble
   Apache-2.0 Bluetooth host, transport, ATT/GATT, notification and crypto integration.

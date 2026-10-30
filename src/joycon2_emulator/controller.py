@@ -15,14 +15,14 @@ OPAQUE_RESPONSES = {(7, 1): b"\x00", (0x16, 1): bytes(24),
 
 
 class Controller:
-    def __init__(self, address):
+    def __init__(self, address, mouse=False):
         self.pairing = PairingSession(address)
         self.memory = VirtualMemory(address)
         self.vibration_sample = None
         self.vibration_data = None
         self.player_led_pattern = 0
         self.player_led_reserved = b""
-        self.features = Features()
+        self.features = Features(mouse=mouse)
 
     def handle(self, request):
         if request.command == 0x15:

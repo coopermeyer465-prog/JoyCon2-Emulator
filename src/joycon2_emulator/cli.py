@@ -27,6 +27,7 @@ def main():
     lab.add_argument("--seconds", type=int, default=60)
     lab.add_argument("--control-socket", type=Path, help="Owner-only local command socket; permits --seconds 0")
     lab.add_argument("--auto-join", action="store_true", help="Send SL+SR once after each initialized connection")
+    lab.add_argument("--experimental-mouse", action="store_true", help="Advertise native optical mouse (unverified on console)")
     lab.add_argument("--calibration", type=Path, help="Private allowlisted factory-data capture")
     lab.add_argument("--test-button", choices=("join", "home", "a", "b"),
                      help="Send one pulse after subscribed input starts (HOME 50 ms, others 250 ms); join means SL+SR")
@@ -50,6 +51,10 @@ def main():
                        help="raw axes or screen-oriented axes for a sideways right Joy-Con")
     sequence = actions.add_parser("sequence", help="Replace input with a bounded JSON array of steps")
     sequence.add_argument("file", type=Path)
+    mouse = actions.add_parser("mouse", help="One native optical delta; requires experimental mouse and console enablement")
+    mouse.add_argument("--dx", type=int, default=0)
+    mouse.add_argument("--dy", type=int, default=0)
+    mouse.add_argument("--lifted", action="store_true")
     args = parser.parse_args()
     if args.command == "doctor":
         print(json.dumps({"platform": platform.system(), "playable": False,
@@ -72,7 +77,8 @@ def main():
         from .backend import serve
         logging.basicConfig(level=logging.INFO)
         asyncio.run(serve(args.address, args.transport, args.bond_file, args.seconds,
-                          args.calibration, args.test_button, args.control_socket, args.auto_join))
+                          args.calibration, args.test_button, args.control_socket, args.auto_join,
+                          args.experimental_mouse))
     elif args.command == "control":
         from .control import send
         request = {"op": args.action}
@@ -85,6 +91,8 @@ def main():
             if args.file.stat().st_size > 65536:
                 parser.error("Sequence file exceeds 64 KiB")
             request = {"op": "sequence", "steps": json.loads(args.file.read_text())}
+        elif args.action == "mouse":
+            request = {"op": "mouse", "dx": args.dx, "dy": args.dy, "lifted": args.lifted}
         try:
             result = asyncio.run(send(args.socket, request))
         except (OSError, ValueError, asyncio.TimeoutError) as error:

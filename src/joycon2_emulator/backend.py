@@ -81,7 +81,7 @@ def install_services(device, on_command):
 
 
 async def serve(address, transport, bond_file, seconds, calibration=None, test_button=None, control_socket=None,
-                auto_join=False):
+                auto_join=False, experimental_mouse=False):
     async with await open_transport(transport) as hci:
         config = DeviceConfiguration()
         config.name = "Joy-Con 2 (R)"
@@ -89,7 +89,7 @@ async def serve(address, transport, bond_file, seconds, calibration=None, test_b
         config.gap_service_enabled = config.gatt_service_enabled = False
         config.classic_enabled = False
         device = Device.from_config_with_hci(config, hci.source, hci.sink)
-        controller = Controller(address)
+        controller = Controller(address, mouse=experimental_mouse)
         if calibration is not None:
             controller.memory.load_calibration(calibration)
         pairing = controller.pairing
@@ -98,6 +98,7 @@ async def serve(address, transport, bond_file, seconds, calibration=None, test_b
             LOG.info("Loaded private bond state (keys redacted)")
         pending = set()
         state = InputState()
+        state.mouse_supported = experimental_mouse
         active_connection = None
 
         async def process_command(connection, data, combined):
@@ -109,6 +110,9 @@ async def serve(address, transport, bond_file, seconds, calibration=None, test_b
                              int.from_bytes(request.payload[4:8], "little"), request.payload[0])
                 response = controller.handle(request)
                 if request.command == 0x0C:
+                    state.mouse_enabled = bool(controller.features.enabled & 0x10)
+                    if not state.mouse_enabled:
+                        state.pending_mouse = None
                     LOG.info("Implemented input features enabled: 0x%02x", controller.features.enabled)
                 if pairing.finalized and (request.command, request.subcommand) in ((0x15, 3), (3, 9)):
                     pairing.save(bond_file)
@@ -223,8 +227,9 @@ async def serve(address, transport, bond_file, seconds, calibration=None, test_b
                         pulse_sent = True
                         LOG.info("Sending opt-in %s test pulse for %d ms", test_button, pulse.duration_ms)
                     raw_x, raw_y = controller.memory.logical_stick(x, y)
+                    mouse = state.take_mouse(time.monotonic())
                     await asyncio.wait_for(notify_input(device, active_connection,
-                        inputs, right_report(counter, buttons, x=raw_x, y=raw_y)), 2)
+                        inputs, right_report(counter, buttons, x=raw_x, y=raw_y, mouse=mouse)), 2)
                     current_input = (buttons, x, y)
                     if current_input != last_input:
                         LOG.info("Input transition queued: generation=%d buttons=%s x=%.3f y=%.3f; "
@@ -242,7 +247,8 @@ async def serve(address, transport, bond_file, seconds, calibration=None, test_b
             if state.ready:
                 try:
                     await asyncio.wait_for(notify_input(device, active_connection,
-                        inputs, right_report(counter, x=center_x, y=center_y)), 1)
+                        inputs, right_report(counter, x=center_x, y=center_y,
+                                             mouse=(0, 0, 255) if state.mouse_enabled else None)), 1)
                     await asyncio.sleep(0.1)
                 except Exception:
                     LOG.warning("Final neutral report unavailable; closing BLE transport")

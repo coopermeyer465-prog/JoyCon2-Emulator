@@ -48,10 +48,24 @@ class InputState:
         self.steps = []
         self.started = 0
         self.generation = 0
+        self.mouse_supported = False
+        self.mouse_enabled = False
+        self.pending_mouse = None
 
     def release(self):
         self.steps = []
+        self.pending_mouse = None
         self.generation += 1
+
+    def take_mouse(self, now):
+        """Consume one relative movement, never repeat it as a held state."""
+        pending, self.pending_mouse = self.pending_mouse, None
+        if not self.mouse_supported or not self.mouse_enabled:
+            return None
+        if (pending is not None and now < pending[1] and self.ready
+                and not self.registering and not self.stopping and self.mouse_enabled):
+            return pending[0]
+        return (0, 0, 255)
 
     def snapshot(self, now):
         elapsed = now - self.started
@@ -68,10 +82,24 @@ class InputState:
             raise ValueError("Expected a JSON object")
         operation = request.get("op")
         allowed = {"set": {"op", "state"}, "sequence": {"op", "steps"},
-                   "release": {"op"}, "status": {"op"}, "stop": {"op"}}
+                   "release": {"op"}, "status": {"op"}, "stop": {"op"},
+                   "mouse": {"op", "dx", "dy", "lifted"}}
         if not isinstance(operation, str) or operation not in allowed or set(request) - allowed[operation]:
             raise ValueError("Unknown operation or request fields")
-        if operation in ("set", "sequence"):
+        if operation == "mouse":
+            if (not self.ready or self.registering or self.stopping
+                    or not self.mouse_supported or not self.mouse_enabled):
+                raise ValueError("Experimental mouse is not enabled by the console")
+            dx, dy = request.get("dx", 0), request.get("dy", 0)
+            if any(type(value) is not int or not -32768 <= value <= 32767 for value in (dx, dy)):
+                raise ValueError("Mouse deltas must be signed 16-bit integers")
+            lifted = request.get("lifted", False)
+            if type(lifted) is not bool or (lifted and (dx or dy)):
+                raise ValueError("Lifted mouse must have zero movement")
+            if self.pending_mouse is not None and now < self.pending_mouse[1]:
+                raise ValueError("A mouse movement is already pending")
+            self.pending_mouse = ((dx, dy, 255 if lifted else 0), now + 0.25)
+        elif operation in ("set", "sequence"):
             if not self.ready or self.registering or self.stopping:
                 raise ValueError("Controller is not ready; no input was queued")
             values = [request.get("state")] if operation == "set" else request.get("steps")
@@ -91,6 +119,8 @@ class InputState:
                 "ready": self.ready and not self.registering, "registering": self.registering,
                 "stopping": self.stopping,
                 "generation": self.generation, "buttons": list(buttons), "x": x, "y": y,
+                "experimental_mouse": self.mouse_supported, "mouse_enabled": self.mouse_enabled,
+                "mouse_pending": bool(self.pending_mouse and now < self.pending_mouse[1]),
                 "queued_steps": len(self.steps)}
 
 

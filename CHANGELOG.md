@@ -2,6 +2,21 @@
 
 ## 2026-10-30
 
+### Experimental Native Sensor Work
+
+- Added opt-in native optical-mouse fields to right report 0x08, feature bit 4
+  negotiation and `j2 start --experimental-mouse` / `j2 mouse` commands.
+- Mouse deltas are one-shot, bounded, short-lived and independent of held
+  buttons/sticks. Feature disable/disconnect/release discard pending movement.
+  No mouse-to-stick mode or browser pointer capture was restored.
+- Added an offline, tested common-report IMU encoder. Live compact-report gyro
+  remains unimplemented and is not advertised; no captured gyro frames copied.
+- Console testing was deferred because its daily play-time limit was reached.
+  The owner's proposed R-only vertical registration is documented as unverified.
+  See [sensor status and commands](docs/SENSORS.md).
+- Verification: all 71 Python core/bridge/CLI tests pass in the Linux VM;
+  native mouse and R-only registration remain pending hardware verification.
+
 ### Input Diagnostics And Mapping
 
 - Verified A/B/X/Y, R/ZR, PLUS, stick click and SL/SR in the Switch's own

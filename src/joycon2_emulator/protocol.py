@@ -65,8 +65,13 @@ RIGHT_BUTTONS = {"B": 0, "A": 1, "Y": 2, "X": 3, "R": 4, "ZR": 5,
                  "PLUS": 6, "STICK": 7, "HOME": 8, "C": 12, "SR": 14, "SL": 15}
 
 
-def right_report(counter=0, buttons=(), x=2048, y=2048):
-    """Encode report 0x08 without its USB report ID; sensors are disabled/zero."""
+def right_report(counter=0, buttons=(), x=2048, y=2048, mouse=None):
+    """Encode report 0x08 without its USB report ID; IMU remains disabled.
+
+    Optional mouse is (signed delta X, signed delta Y, raw surface byte).
+    The surface byte's meaning is not fully documented; 0/255 contact/lift
+    follows XD2Joy's experimental convention, not a calibrated distance.
+    """
     bits = 0
     for name in buttons:
         bits |= 1 << RIGHT_BUTTONS[name]
@@ -76,4 +81,10 @@ def right_report(counter=0, buttons=(), x=2048, y=2048):
     struct.pack_into("<H", report, 2, bits)
     report[4] = 7
     report[5:8] = pack_stick(x, y)
+    if mouse is not None:
+        dx, dy, surface = mouse
+        for value, low, high in ((dx, -32768, 32767), (dy, -32768, 32767), (surface, 0, 255)):
+            if type(value) is not int or not low <= value <= high:
+                raise ValueError("Invalid native mouse field")
+        struct.pack_into("<hhB", report, 9, dx, dy, surface)
     return bytes(report)

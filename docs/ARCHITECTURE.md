@@ -11,8 +11,10 @@
 - `memory.py`: generated virtual metadata, limited private calibration import,
   opaque compatibility fields and erased virtual user-calibration slots. Never
   responds with pairing keys or Nintendo firmware.
-- `features.py`: explicit buttons/stick feature enable/mask state. Sensors are not
-  advertised as implemented and reports wait for feature enablement.
+- `features.py`: explicit buttons/stick feature enable/mask state, plus opt-in
+  experimental native mouse. IMU stays disabled; reports wait for feature enablement.
+- `motion.py`: offline common-report IMU encoder only; not the console's packed
+  compact-report format. See [sensor status](SENSORS.md).
 - `factory_capture.py`: direct BLE client, read-only four-block allowlist, no SMP
   pairing or arbitrary flash/address commands. Output is private and gitignored.
 - `input_test.py`: allowlisted, opt-in pulse (HOME 50 ms, others 250 ms) with explicit release.
