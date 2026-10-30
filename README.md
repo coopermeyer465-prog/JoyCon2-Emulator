@@ -26,6 +26,7 @@ Bluetooth captures, or pairing keys are distributed.
 | Bond reload and LTK interoperability | Implemented per-address keys; encrypted reconnect observed after process restart; long-term reliability untested |
 | Player LEDs and vibration requests | Virtual state/sink only, no physical output |
 | Opt-in button smoke tests | HOME 50 ms, join/A/B 250 ms; join confirmed; old HOME pulse opened Quick Settings |
+| Command-driven buttons/right stick | Implemented with timed release, sequences and a private local socket; console behavior under test |
 | Live gamepad/WebHID relay, left/right combined controller | Not implemented |
 | Gyro, mouse, physical rumble, NFC, firmware updates | Not implemented |
 
@@ -93,6 +94,66 @@ The pulse starts two seconds after the subscribed report stream starts, lasts
 test was interpreted as a hold and opened Quick Settings; the shorter timing
 needs another physical-console test. Keep the console on the appropriate screen before starting.
 This is a diagnostic input test, not the live Lic2/WebHID relay.
+
+## Command Control
+
+After initial pairing and private calibration import, the backend can accept
+timed button/stick commands. This emulates **one right Joy-Con**, not a complete
+two-stick controller. Supported buttons: `A B X Y R ZR PLUS STICK HOME C SL SR`.
+There is no left stick, D-pad, L or ZL, and no video capture or power switching.
+
+For a Mac using an existing Vagrant Linux VM, configure the wrapper once. Replace
+the deliberately invalid address with the USB adapter's own address. The guest
+must already have this project, its dependencies, saved bond and calibration.
+The paths below are examples; use your existing guest Python environment.
+
+```sh
+./scripts/j2 configure --vm-dir /path/to/vagrant-project \
+  --guest-dir /home/vagrant/JoyCon2-Emulator \
+  --guest-python /home/vagrant/JoyCon2-Emulator/.venv/bin/python \
+  --address AD:AP:TE:RS:MA:CC
+./scripts/j2 start
+./scripts/j2 status
+./scripts/j2 stick --x 0.5 --y 0 --duration 0.15
+./scripts/j2 press HOME --duration 0.05
+./scripts/j2 release
+./scripts/j2 stop
+```
+
+Wake the console and wait for `"ready": true` before sending input. An initial
+registration may require Change Grip/Order and `./scripts/j2 press SL SR
+--duration 0.25`. The wrapper resumes the VM if necessary, stops BlueZ/NXBT and
+starts a transient `joycon2-command.service`. Stopping or exiting that service
+restores BlueZ/NXBT. Local configuration is private in `.state/mac.json`.
+On the original development Mac, the separate wake shortcut stops this service
+before using the adapter; run `./scripts/j2 start` afterward to resume control.
+The public repository does not include that machine-specific wake shortcut.
+
+Stick coordinates are -1 to 1, positive Y is up, and imported factory calibration
+maps them to report coordinates. Each command replaces the previous command or
+sequence. Inputs automatically return to neutral after their duration, on loss
+of readiness, and on orderly shutdown. Per-step duration is 0.02 to 10 seconds;
+sequences allow up to 256 steps and 300 seconds total. These are host-side timings,
+not guarantees of radio delivery or game latency. A successful reply means the
+input was queued, not that the console acknowledged its visible effect.
+
+`./scripts/j2 sequence examples/button-stick.json` sends a JSON step array with
+optional `buttons`, `x`, `y` and `duration` fields. **That example presses A**;
+inspect it before running it on a console. Sequences avoid one SSH round trip per
+step. `release` cancels pending input immediately at the host scheduler.
+
+For native Linux, add `--control-socket .state/control.sock --seconds 0` to
+the calibrated `serve` invocation above, then use a second terminal:
+
+```sh
+sudo .venv/bin/joycon2-emulator control --socket .state/control.sock status
+sudo .venv/bin/joycon2-emulator control --socket .state/control.sock press HOME --duration 0.05
+sudo .venv/bin/joycon2-emulator control --socket .state/control.sock stop
+```
+
+The socket is owner-only (0600), accepts bounded local JSON requests and opens no
+TCP listener. Continuous serving requires the socket; diagnostic pulses cannot
+be combined with command control. Keep keys, calibration and `.state` private.
 
 ## Private Calibration Capture
 

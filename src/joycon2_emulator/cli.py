@@ -25,6 +25,7 @@ def main():
     lab.add_argument("--transport", default="hci-socket:0")
     lab.add_argument("--bond-file", type=Path, default=Path(".state/bond.json"))
     lab.add_argument("--seconds", type=int, default=60)
+    lab.add_argument("--control-socket", type=Path, help="Owner-only local command socket; permits --seconds 0")
     lab.add_argument("--calibration", type=Path, help="Private allowlisted factory-data capture")
     lab.add_argument("--test-button", choices=("join", "home", "a", "b"),
                      help="Send one pulse after subscribed input starts (HOME 50 ms, others 250 ms); join means SL+SR")
@@ -32,6 +33,20 @@ def main():
     capture.add_argument("--peer", required=True)
     capture.add_argument("--output", type=Path, default=Path(".state/factory-calibration.json"))
     capture.add_argument("--transport", default="hci-socket:0")
+    control = commands.add_parser("control", help="Send one local controller command")
+    control.add_argument("--socket", type=Path, default=Path(".state/control.sock"))
+    actions = control.add_subparsers(dest="action", required=True)
+    for action in ("status", "release", "stop"):
+        actions.add_parser(action)
+    press = actions.add_parser("press", help="Timed button or chord, then release")
+    press.add_argument("buttons", nargs="+")
+    press.add_argument("--duration", type=float, default=0.05)
+    stick = actions.add_parser("stick", help="Right stick, normalized -1..1; positive Y is up")
+    stick.add_argument("--x", type=float, default=0)
+    stick.add_argument("--y", type=float, default=0)
+    stick.add_argument("--duration", type=float, default=0.25)
+    sequence = actions.add_parser("sequence", help="Replace input with a bounded JSON array of steps")
+    sequence.add_argument("file", type=Path)
     args = parser.parse_args()
     if args.command == "doctor":
         print(json.dumps({"platform": platform.system(), "playable": False,
@@ -47,12 +62,32 @@ def main():
         for report in json.loads(args.capture.read_text()):
             print(json.dumps({"source": report["address"], **decode_advertisement(bytes.fromhex(report["advertisement"]))}))
     elif args.command == "serve":
-        if platform.system() != "Linux" or not 1 <= args.seconds <= 300:
-            parser.error("Serve needs Linux and --seconds between 1 and 300")
+        if platform.system() != "Linux" or not 0 <= args.seconds <= 300 or (args.seconds == 0 and not args.control_socket):
+            parser.error("Serve needs Linux; use 1..300 seconds or 0 with --control-socket")
+        if args.control_socket and args.test_button:
+            parser.error("Choose a command socket or a diagnostic pulse, not both")
         from .backend import serve
         logging.basicConfig(level=logging.INFO)
         asyncio.run(serve(args.address, args.transport, args.bond_file, args.seconds,
-                          args.calibration, args.test_button))
+                          args.calibration, args.test_button, args.control_socket))
+    elif args.command == "control":
+        from .control import send
+        request = {"op": args.action}
+        if args.action == "press":
+            request = {"op": "set", "state": {"buttons": [button.upper() for button in args.buttons], "duration": args.duration}}
+        elif args.action == "stick":
+            request = {"op": "set", "state": {"x": args.x, "y": args.y, "duration": args.duration}}
+        elif args.action == "sequence":
+            if args.file.stat().st_size > 65536:
+                parser.error("Sequence file exceeds 64 KiB")
+            request = {"op": "sequence", "steps": json.loads(args.file.read_text())}
+        try:
+            result = asyncio.run(send(args.socket, request))
+        except (OSError, ValueError, asyncio.TimeoutError) as error:
+            parser.exit(2, f"Control unavailable: {type(error).__name__}\n")
+        print(json.dumps(result))
+        if not result.get("ok"):
+            parser.exit(2)
     elif args.command == "capture-calibration":
         if platform.system() != "Linux":
             parser.error("Calibration capture needs the Linux HCI backend")

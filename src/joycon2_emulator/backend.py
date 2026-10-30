@@ -16,6 +16,7 @@ from bumble.transport import open_transport
 from .controller import Controller
 from .protocol import Command, advertisement, right_report
 from .input_test import ButtonPulse
+from .control import InputState, ControlServer
 
 
 LOG = logging.getLogger(__name__)
@@ -70,7 +71,7 @@ def install_services(device, on_command):
     return inputs, response
 
 
-async def serve(address, transport, bond_file, seconds, calibration=None, test_button=None):
+async def serve(address, transport, bond_file, seconds, calibration=None, test_button=None, control_socket=None):
     async with await open_transport(transport) as hci:
         config = DeviceConfiguration()
         config.name = "Joy-Con 2 (R)"
@@ -86,6 +87,8 @@ async def serve(address, transport, bond_file, seconds, calibration=None, test_b
             pairing.load(bond_file)
             LOG.info("Loaded private bond state (keys redacted)")
         pending = set()
+        state = InputState()
+        active_connection = None
 
         async def process_command(connection, data, combined):
             try:
@@ -128,13 +131,23 @@ async def serve(address, transport, bond_file, seconds, calibration=None, test_b
         device.host.long_term_key_provider = provide_ltk
 
         def connected(connection):
+            nonlocal active_connection
+            active_connection = connection
+            state.connected = True
             LOG.info("BLE link established; console compatibility is NOT yet verified")
             LOG.info("Connection parameters: %s", connection.parameters)
             connection.on("connection_parameters_update",
                           lambda: LOG.info("Connection parameters updated: %s", connection.parameters))
             connection.on("connection_encryption_change",
                           lambda: LOG.info("Link encryption active: %s", connection.is_encrypted))
-            connection.on("disconnection", lambda reason: LOG.info("Disconnected: %s", reason))
+            def disconnected(reason):
+                nonlocal active_connection
+                if active_connection is connection:
+                    active_connection = None
+                    state.connected = state.ready = False
+                    state.release()
+                LOG.info("Disconnected: %s; queued input released", reason)
+            connection.on("disconnection", disconnected)
 
         device.on("connection", connected)
         await device.power_on()
@@ -145,33 +158,55 @@ async def serve(address, transport, bond_file, seconds, calibration=None, test_b
         await device.start_advertising(own_address_type=OwnAddressType.PUBLIC,
                                        advertising_data=advertisement(host=host_address), scan_response_data=b"",
                                        auto_restart=True)
-        LOG.warning("LAB ONLY: advertising right Joy-Con 2 for %d seconds; playable initialization is incomplete", seconds)
+        LOG.warning("EXPERIMENTAL: right Joy-Con 2; duration=%s", seconds or "until stopped")
+        server = ControlServer(control_socket, state) if control_socket else None
+        if server:
+            await server.start()
+            LOG.info("Private local command socket ready")
         try:
-            # Neutral reports only. External gamepad/WebHID input is a later milestone.
+            # No input unless explicitly queued through the socket or test pulse.
             queued_reports = 0
             stream_start = None
             pulse = ButtonPulse(test_button) if test_button else None
             pulse_sent = False
             counter = 0
-            deadline = time.monotonic() + seconds
-            while time.monotonic() < deadline:
+            deadline = time.monotonic() + seconds if seconds else float("inf")
+            while time.monotonic() < deadline and not state.stopping:
                 subscribed = any(values.get(inputs.handle, b"\x00\x00")[0] & 1
                                  for values in device.gatt_server.subscribers.values())
-                if pairing.finalized and controller.features.enabled and subscribed:
+                was_ready = state.ready
+                state.ready = bool(pairing.finalized and controller.features.enabled and subscribed
+                                   and active_connection and active_connection.is_encrypted)
+                if was_ready and not state.ready:
+                    state.release()
+                if state.ready:
                     if queued_reports == 0:
                         stream_start = time.monotonic()
                         LOG.info("Subscribed right-report stream enabled")
-                    buttons = pulse.at(time.monotonic() - stream_start) if pulse else ()
-                    if buttons and not pulse_sent:
+                    buttons, x, y = state.snapshot(time.monotonic())
+                    if pulse:
+                        buttons = pulse.at(time.monotonic() - stream_start)
+                    if pulse and buttons and not pulse_sent:
                         pulse_sent = True
                         LOG.info("Sending opt-in %s test pulse for %d ms", test_button, pulse.duration_ms)
+                    raw_x, raw_y = controller.memory.logical_stick(x, y)
                     await asyncio.wait_for(device.notify_subscribers(
-                        inputs, right_report(counter, buttons, x=center_x, y=center_y)), 2)
+                        inputs, right_report(counter, buttons, x=raw_x, y=raw_y)), 2)
                     queued_reports += 1
                 counter += 1
                 await asyncio.sleep(0.01)
             LOG.info("Queued %d reports; console input effects require user confirmation", queued_reports)
         finally:
+            state.release()
+            if state.ready:
+                try:
+                    await asyncio.wait_for(device.notify_subscribers(
+                        inputs, right_report(counter, x=center_x, y=center_y)), 1)
+                    await asyncio.sleep(0.1)
+                except Exception:
+                    LOG.warning("Final neutral report unavailable; closing BLE transport")
+            if server:
+                await server.close()
             await device.stop_advertising()
             for task in pending:
                 task.cancel()

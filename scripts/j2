@@ -1,0 +1,107 @@
+#!/usr/bin/env python3
+"""Mac command wrapper for a Vagrant Linux controller backend. Standard library only."""
+
+import argparse
+import csv
+import json
+import os
+from pathlib import Path
+import shlex
+import shutil
+import subprocess
+import sys
+import time
+import uuid
+
+
+ROOT = Path(__file__).resolve().parents[1]
+CONFIG = ROOT / ".state" / "mac.json"
+
+
+def main():
+    if len(sys.argv) < 2 or sys.argv[1] in ("-h", "--help"):
+        print("j2 configure --vm-dir PATH --guest-dir PATH --address ADDRESS [--guest-python PATH] [--guest-pythonpath PATH]\n"
+              "j2 start | status | press A [B ...] --duration 0.05 | stick --x 0.5 --y 0 --duration 0.25\n"
+              "j2 sequence FILE.json | release | stop")
+        return 0
+    if sys.argv[1] == "configure":
+        parser = argparse.ArgumentParser()
+        parser.add_argument("--vm-dir", type=Path, required=True)
+        parser.add_argument("--guest-dir", required=True)
+        parser.add_argument("--address", required=True)
+        parser.add_argument("--guest-python", default="python3")
+        parser.add_argument("--guest-pythonpath", default="")
+        args = parser.parse_args(sys.argv[2:])
+        config = {"vm_dir": str(args.vm_dir.resolve()), "guest_dir": args.guest_dir,
+                  "address": args.address, "guest_python": args.guest_python,
+                  "guest_pythonpath": args.guest_pythonpath}
+        CONFIG.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        fd = os.open(CONFIG, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(fd, "w") as stream:
+            json.dump(config, stream)
+        print("Saved private Mac configuration.")
+        return 0
+    config = json.loads(CONFIG.read_text())
+    vagrant = shutil.which("vagrant") or "/usr/local/bin/vagrant"
+
+    def command(arguments, **kwargs):
+        return subprocess.run([vagrant, *arguments], cwd=config["vm_dir"], **kwargs)
+
+    def remote(script, **kwargs):
+        return command(["ssh", "-c", script], **kwargs)
+
+    python = ["env", "PYTHONPATH=" + ":".join(filter(None, [config["guest_pythonpath"], config["guest_dir"] + "/src"])),
+              config["guest_python"], "-m", "joycon2_emulator.cli"]
+    action, rest = sys.argv[1], sys.argv[2:]
+    if action not in ("start", "status", "press", "stick", "sequence", "release", "stop"):
+        raise ValueError("Unknown action")
+    if action == "start":
+        result = command(["status", "--machine-readable"], capture_output=True, text=True, check=True)
+        running = any(len(row) >= 4 and row[2:4] == ["state", "running"] for row in csv.reader(result.stdout.splitlines()))
+        if not running:
+            command(["up", "--no-provision"], check=True)
+        service = ["systemd-run", "--quiet", "--collect", "--unit=joycon2-command",
+                   "--property=WorkingDirectory=" + config["guest_dir"],
+                   "--property=ExecStopPost=/usr/bin/systemctl start bluetooth nxbt-web",
+                   "--property=KillSignal=SIGINT", "--property=TimeoutStopSec=5",
+                   *python, "serve", "--experimental", "--address", config["address"],
+                   "--calibration", ".state/factory-calibration.json", "--control-socket", ".state/control.sock", "--seconds", "0"]
+        script = ("set -eu\nif systemctl is-active --quiet joycon2-command.service; then exit 0; fi\n"
+                  "trap 'systemctl start bluetooth nxbt-web' EXIT\n"
+                  "systemctl stop nxbt-web bluetooth\nhciconfig hci0 down\n" + shlex.join(service) + "\ntrap - EXIT\n")
+        remote("sudo bash -c " + shlex.quote(script), check=True)
+        for _ in range(30):
+            result = remote("cd " + shlex.quote(config["guest_dir"]) + " && sudo " + shlex.join([*python, "control", "status"]), capture_output=True, text=True)
+            if result.returncode == 0:
+                print(result.stdout.strip())
+                return 0
+            time.sleep(1)
+        raise RuntimeError("Controller did not start; inspect journalctl -u joycon2-command")
+    uploaded = None
+    try:
+        if action == "sequence":
+            if len(rest) != 1:
+                raise ValueError("sequence needs one local JSON filename")
+            source = Path(rest[0]).resolve()
+            if source.stat().st_size > 65536:
+                raise ValueError("Sequence file exceeds 64 KiB")
+            uploaded = "/tmp/j2-sequence-" + uuid.uuid4().hex + ".json"
+            command(["upload", str(source), uploaded], check=True, stdout=subprocess.DEVNULL)
+            rest = [uploaded]
+        result = remote("cd " + shlex.quote(config["guest_dir"]) + " && sudo " + shlex.join([*python, "control", action, *rest]))
+        if action == "stop" and result.returncode == 0:
+            for _ in range(20):
+                if remote("sudo systemctl is-active --quiet joycon2-command.service", stdout=subprocess.DEVNULL).returncode != 0:
+                    break
+                time.sleep(0.25)
+        return result.returncode
+    finally:
+        if uploaded:
+            remote(shlex.join([config["guest_python"], "-c", "from pathlib import Path; import sys; Path(sys.argv[1]).unlink(missing_ok=True)", uploaded]), stdout=subprocess.DEVNULL)
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main())
+    except (OSError, ValueError, RuntimeError, subprocess.CalledProcessError) as error:
+        sys.exit("j2: " + str(error))

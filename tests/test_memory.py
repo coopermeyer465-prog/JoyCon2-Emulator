@@ -71,3 +71,10 @@ class MemoryTests(unittest.TestCase):
         self.memory.regions[0x13080] = bytes(64)
         with self.assertRaises(ValueError):
             self.memory.primary_center()
+
+    def test_normalized_stick_uses_asymmetric_calibrated_ranges(self):
+        self.memory.regions[0x13080] = (bytes(40) + pack_stick(2100, 1950)
+                                      + pack_stick(1000, 1100) + pack_stick(1200, 900) + bytes(15))
+        self.assertEqual(self.memory.logical_stick(0, 0), (2100, 1950))
+        self.assertEqual(self.memory.logical_stick(1, 1), (3100, 3050))
+        self.assertEqual(self.memory.logical_stick(-1, -1), (900, 1050))

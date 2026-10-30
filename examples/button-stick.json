@@ -1,0 +1,6 @@
+[
+  {"buttons": ["A"], "duration": 0.05},
+  {"duration": 0.3},
+  {"x": 0.5, "y": 0.0, "duration": 0.25},
+  {"duration": 0.1}
+]

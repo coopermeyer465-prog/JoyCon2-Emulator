@@ -61,6 +61,23 @@ class VirtualMemory:
             raise ValueError("Invalid primary-stick factory center")
         return x, y
 
+    def logical_stick(self, x, y):
+        center = self.primary_center()
+        try:
+            packed = self.read(0x130AB, 6)
+        except NotImplementedError:
+            positive, negative = (2047, 2047), (2048, 2048)
+        else:
+            def axes(data):
+                return data[0] | ((data[1] & 15) << 8), (data[1] >> 4) | (data[2] << 4)
+            positive, negative = axes(packed[:3]), axes(packed[3:])
+        result = []
+        for value, midpoint, high, low in zip((x, y), center, positive, negative):
+            if high <= 0 or low <= 0 or midpoint + high > 4095 or midpoint - low < 0:
+                raise ValueError("Invalid factory stick range")
+            result.append(round(midpoint + value * (high if value >= 0 else low)))
+        return tuple(result)
+
     def handle_read(self, payload):
         if len(payload) != 8 or payload[1:4] != b"\x7e\x00\x00":
             raise ValueError("Invalid memory-read request")

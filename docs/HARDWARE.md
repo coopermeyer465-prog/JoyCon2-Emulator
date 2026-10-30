@@ -89,3 +89,17 @@ The subsequent HOME test had a console-visible effect, but the user clarified
 that it opened the hold/Quick Settings menu rather than going HOME. The HOME
 pulse is now scheduled for 50 ms instead of 250 ms, with explicit release tests;
 short-tap behavior on the console is not yet verified. Join remains 250 ms.
+
+## Command API Test
+
+Forty-five unit tests pass on guest Python 3.10, including calibrated asymmetric
+stick ranges, timed commands/sequences, invalid-input rejection, neutral release,
+Unix-socket permissions and preservation of existing non-socket files.
+The Mac wrapper started a transient command service, reconnected with the saved
+bond, and reported encrypted/initialized input readiness. One 150 ms half-right
+stick movement and one 50 ms HOME tap were accepted through that service. Status
+after the stick command showed neutral coordinates and no queued steps.
+Console-visible movement and short-HOME interpretation still require user
+confirmation; server acceptance alone is not proof of either.
+The user reported no clear visible effect with the console already on HOME.
+That screen does not provide a decisive right-stick or short-HOME test.
