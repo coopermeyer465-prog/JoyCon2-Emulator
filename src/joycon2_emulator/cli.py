@@ -29,7 +29,7 @@ def main():
     if args.command == "doctor":
         print(json.dumps({"platform": platform.system(), "playable": False,
                           "usb_5ms_connection_support": "unverified",
-                          "wake_reliability": "one successful test; repeat failure reported"}))
+                          "wake_reliability": "old prototype regressed; revised burst test passed once"}))
         if platform.system() == "Linux":
             subprocess.run(["hciconfig", "-a"], check=True)
         else:

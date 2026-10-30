@@ -21,7 +21,9 @@ chip rather than assuming all adapters sold under the same name behave identical
 - Ten unit tests passed on Python 3.10 ARM64, including the vendor GATT handle
   layout, protocol encoders, pairing challenge vector and owner-only bond file.
 - A fresh wake capture after the regression matched the original packet exactly.
-  A revised connectable-advertising wake test is being evaluated separately.
+  A revised connectable-advertising, three-burst test then woke the console
+  (user confirmed). Repeat reliability and the exact regression cause remain
+  unproven; PDU type and burst timing were changed together.
 
 The wake prototype's success is not proof of a working gameplay controller. Any
 new hardware results must record software/firmware version, procedure, expected

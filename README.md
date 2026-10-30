@@ -18,8 +18,8 @@ Bluetooth captures, or pairing keys are distributed.
 | Nintendo command framing and pairing challenge/response | Implemented, known-vector tested |
 | Vendor GATT database with expected attribute handles | Implemented on Bumble; layout tested |
 | Bounded Linux BLE peripheral lab | Implemented; hardware results in docs/HARDWARE.md |
-| Stock USB adapter sleep wake | Separate local prototype woke one Switch 2 once; repeat failure reported |
-| Reliable sleep wake after physical Joy-Con docking | Investigating, not fixed or guaranteed |
+| Stock USB adapter sleep wake | Local prototype and revised connectable/three-burst test both woke one console |
+| Reliable sleep wake after physical Joy-Con docking | Old prototype regressed; revised test passed once, repeat reliability unproven |
 | 5 ms connection interval on Realtek RTL8761BU | Unverified; possible hardware/firmware blocker |
 | Console initialization, calibration/flash responses | Not implemented |
 | Bond reload, reliable reconnect, LTK interoperability | Not validated; bond reload not implemented |
@@ -85,7 +85,10 @@ permissions, but reconnecting from a saved bond is a future milestone.
 The separately developed local prototype uses an RTL8761BU USB adapter to replay
 a captured wake advertisement with the originating controller's public address.
 An initial test woke the console, but a later test after attaching the physical
-Joy-Con to the console did not. The cause has **not** been established. Docking
+Joy-Con to the console did not. A fresh capture matched the original exactly.
+Changing to connectable advertisements in three short bursts woke the console
+in a subsequent user-confirmed test. This changed two variables and does not
+isolate the cause or prove long-term reliability. Docking
 must not be assumed to rotate the address, keys, or packet without evidence.
 This repo currently includes advertisement inspection/encoding, not the original
 machine-specific wake launcher or its private capture.
@@ -96,10 +99,9 @@ To inspect an existing local capture produced by the prototype:
 joycon2-emulator inspect-capture /private/path/to/capture.json
 ```
 
-Keep captures private. The next diagnosis is to compare a fresh paired-controller
-wake advertisement with the earlier one and retest connectable (`ADV_IND`)
-advertising versus the prototype's nonconnectable advertising. Neither comparison
-alone proves that full controller emulation works.
+Keep captures private. Next, repeat sleep/wake cycles with docking/undocking and
+host restarts, then isolate advertising PDU type from burst timing. Wake success
+alone does not prove that full controller emulation works.
 
 ## Development
 
