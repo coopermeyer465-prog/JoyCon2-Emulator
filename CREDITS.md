@@ -18,6 +18,16 @@
 - **Google / Bumble**: https://github.com/google/bumble
   Apache-2.0 Bluetooth host, transport, ATT/GATT, notification and crypto integration.
   Used as a dependency, not redistributed as project-owned code.
+- **JoeGeC / joycon2android**: https://github.com/JoeGeC/joycon2android
+  Primary runtime-protocol reference for the common session's 500 ms feature
+  initialization gap and mask, plus the optional console session-start value,
+  zeroed combined-command prefix and input-rate descriptor. No Kotlin source,
+  captured report arrays or firmware are copied into this project.
+- **seitanmen / Joycon2forMac**: https://github.com/seitanmen/Joycon2forMac
+  MIT-licensed native CoreBluetooth reference, also cited by joycon2android.
+  Consulted for common-input discovery and feature initialization. Our bounded
+  capture-only Objective-C helper is newly written; the source app's HID injection,
+  mouse control, report arrays and firmware are not imported.
 - **Brikwerk / NXBT**: https://github.com/Brikwerk/nxbt
   Existing Classic-BT Pro Controller implementation and web UI by Reece Walsh.
   The optional `integrations/nxbt/web` overlay adapts its Flask/Socket.IO app,

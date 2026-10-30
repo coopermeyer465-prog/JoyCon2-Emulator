@@ -55,6 +55,7 @@ through the owner's capture card. Native optical-mouse mode is not included.
 | Left/right combined controller | Not implemented; neither one-radio nor two-radio pair is validated |
 | Native optical mouse | Console enables feature; no cursor in tutorial yet; experimental command/report path only |
 | Gyro | Offline common-report codec only; no live gyro support |
+| Native Mac sensor capture | Separate CoreBluetooth diagnostic; 401 private stationary input reports captured; no pairing requested |
 | Physical rumble, NFC, firmware updates | Not implemented |
 
 This is **not a port of XD2Joy firmware to a USB dongle** and is not an NXBT fork.

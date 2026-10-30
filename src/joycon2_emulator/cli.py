@@ -40,6 +40,9 @@ def main():
     sensors.add_argument("--output", type=Path, required=True)
     sensors.add_argument("--transport", default="hci-socket:0")
     sensors.add_argument("--seconds", type=int, default=5)
+    sensors.add_argument("--report", choices=("common", "right"), default="common")
+    sensors.add_argument("--console-session", action="store_true", help="Runtime console channel/rate setup; use with --report right")
+    sensors.add_argument("--random-address", action="store_true", help="Use a temporary random central address; no stored pairing")
     control = commands.add_parser("control", help="Send one local controller command")
     control.add_argument("--socket", type=Path, default=Path(".state/control.sock"))
     actions = control.add_subparsers(dest="action", required=True)
@@ -114,7 +117,11 @@ def main():
         if platform.system() != "Linux":
             parser.error("Sensor capture needs the Linux HCI backend")
         from .sensor_capture import capture
-        asyncio.run(capture(args.peer, args.output, args.transport, args.seconds))
+        try:
+            asyncio.run(capture(args.peer, args.output, args.transport, args.seconds, args.report,
+                                args.console_session, args.random_address))
+        except (OSError, ValueError, asyncio.TimeoutError) as error:
+            parser.exit(2, f"Sensor capture unavailable: {str(error) or type(error).__name__}\n")
 
 
 if __name__ == "__main__":

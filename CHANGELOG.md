@@ -2,6 +2,21 @@
 
 ## 2026-10-30
 
+### Native Sensor Capture
+
+- Added a bounded, capture-only macOS CoreBluetooth helper and build wrapper;
+  native discovery/file-safety self-tests pass, and a requested five-second
+  recording (about 6.3 seconds including startup reports) saved 401 common input
+  reports privately without requesting pairing or calibration
+  writes. No captured report arrays are published.
+- Improved Linux capture diagnostics, one-format subscriptions, 500 ms feature
+  initialization spacing, explicit optional compact-session setup and temporary
+  random-address testing. Those Linux attempts still produced no input reports.
+- Corrected Bumble descriptor lookup to use its real `type` attribute and added
+  real-descriptor, disconnect, output-limit and random-address regression tests.
+- All 79 Python tests pass. Native mouse/gyro emulation is still not verified;
+  captured stationary sensor data is not treated as a calibration reference.
+
 ### Sensor Hardware Diagnostics
 
 - With testing available again, observed the console enabling native mouse

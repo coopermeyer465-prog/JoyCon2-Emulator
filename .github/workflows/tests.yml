@@ -18,3 +18,8 @@ jobs:
           node-version: '22'
       - run: node --test integrations/nxbt/tests/*.test.cjs
       - run: joycon2-emulator advertisement
+  native-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/capture-mac-sensors --self-test

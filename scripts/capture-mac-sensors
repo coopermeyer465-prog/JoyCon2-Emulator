@@ -1,0 +1,37 @@
+#!/usr/bin/env python3
+"""Build and run the bounded native CoreBluetooth sensor reader; no extra packages."""
+
+import argparse
+from pathlib import Path
+import platform
+import subprocess
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--output", type=Path)
+    parser.add_argument("--seconds", type=int, default=5, choices=range(1, 16))
+    parser.add_argument("--self-test", action="store_true")
+    args = parser.parse_args()
+    if platform.system() != "Darwin":
+        parser.error("This helper requires macOS")
+    if not args.self_test and args.output is None:
+        parser.error("--output must be a new private capture filename")
+    root = Path(__file__).resolve().parents[1]
+    source = root / "integrations/macos/sensor-reader.m"
+    plist = source.with_name("Info.plist")
+    state = root / ".state"
+    state.mkdir(mode=0o700, exist_ok=True)
+    binary = state / "mac-sensor-reader"
+    if not binary.exists() or binary.stat().st_mtime < max(source.stat().st_mtime, plist.stat().st_mtime):
+        subprocess.run(["xcrun", "clang", "-fobjc-arc", "-Wall", "-Wextra", "-framework", "Foundation",
+                        "-framework", "CoreBluetooth", "-Xlinker", "-sectcreate", "-Xlinker", "__TEXT",
+                        "-Xlinker", "__info_plist", "-Xlinker", str(plist),
+                        str(source), "-o", str(binary)], check=True)
+        subprocess.run(["codesign", "--force", "--sign", "-", str(binary)], check=True)
+    command = [str(binary), "--self-test"] if args.self_test else [str(binary), str(args.output.absolute()), str(args.seconds)]
+    return subprocess.run(command).returncode
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
