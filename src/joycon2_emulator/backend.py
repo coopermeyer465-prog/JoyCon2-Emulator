@@ -169,6 +169,8 @@ async def serve(address, transport, bond_file, seconds, calibration=None, test_b
             stream_start = None
             pulse = ButtonPulse(test_button) if test_button else None
             pulse_sent = False
+            last_input = ((), 0.0, 0.0)
+            active_reports = 0
             counter = 0
             deadline = time.monotonic() + seconds if seconds else float("inf")
             while time.monotonic() < deadline and not state.stopping:
@@ -192,6 +194,14 @@ async def serve(address, transport, bond_file, seconds, calibration=None, test_b
                     raw_x, raw_y = controller.memory.logical_stick(x, y)
                     await asyncio.wait_for(device.notify_subscribers(
                         inputs, right_report(counter, buttons, x=raw_x, y=raw_y)), 2)
+                    current_input = (buttons, x, y)
+                    if current_input != last_input:
+                        LOG.info("Input transition queued: generation=%d buttons=%s x=%.3f y=%.3f; "
+                                 "previous state queued for %d reports (not a console acknowledgement)",
+                                 state.generation, ",".join(buttons) or "neutral", x, y, active_reports)
+                        last_input = current_input
+                        active_reports = 0
+                    active_reports += 1
                     queued_reports += 1
                 counter += 1
                 await asyncio.sleep(0.01)

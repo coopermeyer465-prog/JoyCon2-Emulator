@@ -103,3 +103,8 @@ Console-visible movement and short-HOME interpretation still require user
 confirmation; server acceptance alone is not proof of either.
 The user reported no clear visible effect with the console already on HOME.
 That screen does not provide a decisive right-stick or short-HOME test.
+A subsequent 50 ms HOME command from System Settings also had no visible effect,
+according to the user. Short-HOME control is therefore not validated. Transition
+logging was added at the BLE notification call to distinguish queued command
+state from reports actually submitted to the transport; neither proves console
+acceptance.
