@@ -8,6 +8,7 @@
 
 static NSString *const ServiceID = @"AB7DE9BE-89FE-49AD-828F-118F09DF7FD0";
 static NSString *const InputID = @"AB7DE9BE-89FE-49AD-828F-118F09DF7FD2";
+static NSString *const CompactInputID = @"D5A9E01E-2FFC-4CCA-B20C-8B67142BF442";
 static NSString *const CommandID = @"649D4AC9-8EB7-4E6C-AF44-1EA54FE5F005";
 static const NSUInteger MaxFrames = 2048;
 
@@ -24,12 +25,12 @@ static NSData *featureCommand(uint8_t subcommand) {
     return [NSData dataWithBytes:bytes length:sizeof(bytes)];
 }
 
-static NSDictionary *frame(NSData *data, NSTimeInterval elapsed) {
+static NSDictionary *frame(NSData *data, NSTimeInterval elapsed, BOOL compact) {
     if (data.length != 63) return nil;
     const uint8_t *bytes = data.bytes;
     NSMutableString *hex = [NSMutableString stringWithCapacity:126];
     for (NSUInteger i = 0; i < data.length; i++) [hex appendFormat:@"%02x", bytes[i]];
-    return @{@"kind": @"common", @"elapsed": @(elapsed), @"data": hex};
+    return @{@"kind": compact ? @"right" : @"common", @"elapsed": @(elapsed), @"data": hex};
 }
 
 static BOOL savePrivate(NSString *path, NSArray *frames, BOOL complete, NSError **error) {
@@ -77,13 +78,18 @@ static BOOL savePrivate(NSString *path, NSArray *frames, BOOL complete, NSError 
 @property NSTimeInterval started;
 @property BOOL scanStarted;
 @property BOOL done;
+@property BOOL compact;
 @property int result;
 - (void)start;
 - (void)finish:(NSString *)failure;
 - (void)recordValue:(NSData *)data;
+- (CBUUID *)inputUUID;
 @end
 
 @implementation SensorReader
+- (CBUUID *)inputUUID {
+    return [CBUUID UUIDWithString:self.compact ? CompactInputID : InputID];
+}
 - (void)start {
     self.candidates = [NSMutableDictionary dictionary];
     self.frames = [NSMutableArray array];
@@ -127,7 +133,7 @@ static BOOL savePrivate(NSString *path, NSArray *frames, BOOL complete, NSError 
     }
 }
 - (void)centralManager:(CBCentralManager *)central didConnectPeripheral:(CBPeripheral *)peripheral {
-    puts("Connected; discovering common-input service.");
+    puts("Connected; discovering selected input service.");
     [peripheral discoverServices:@[[CBUUID UUIDWithString:ServiceID]]];
 }
 - (void)centralManager:(CBCentralManager *)central didFailToConnectPeripheral:(CBPeripheral *)peripheral error:(NSError *)error {
@@ -142,16 +148,16 @@ static BOOL savePrivate(NSString *path, NSArray *frames, BOOL complete, NSError 
         if ([service.UUID isEqual:[CBUUID UUIDWithString:ServiceID]]) inputService = service;
     }
     if (error || !inputService) {
-        [self finish:@"Common-input service discovery failed."];
+        [self finish:@"Input service discovery failed."];
         return;
     }
-    [peripheral discoverCharacteristics:@[[CBUUID UUIDWithString:InputID], [CBUUID UUIDWithString:CommandID]]
+    [peripheral discoverCharacteristics:@[[self inputUUID], [CBUUID UUIDWithString:CommandID]]
                              forService:inputService];
 }
 - (void)peripheral:(CBPeripheral *)peripheral didDiscoverCharacteristicsForService:(CBService *)service error:(NSError *)error {
     CBCharacteristic *input = nil;
     for (CBCharacteristic *characteristic in service.characteristics) {
-        if ([characteristic.UUID isEqual:[CBUUID UUIDWithString:InputID]]) input = characteristic;
+        if ([characteristic.UUID isEqual:[self inputUUID]]) input = characteristic;
         if ([characteristic.UUID isEqual:[CBUUID UUIDWithString:CommandID]]) self.command = characteristic;
     }
     if (error || !input || !self.command || !(input.properties & CBCharacteristicPropertyNotify)
@@ -182,7 +188,7 @@ static BOOL savePrivate(NSString *path, NSArray *frames, BOOL complete, NSError 
     });
 }
 - (void)peripheral:(CBPeripheral *)peripheral didUpdateValueForCharacteristic:(CBCharacteristic *)characteristic error:(NSError *)error {
-    if (self.done || error || ![characteristic.UUID isEqual:[CBUUID UUIDWithString:InputID]]) return;
+    if (self.done || error || ![characteristic.UUID isEqual:[self inputUUID]]) return;
     NSData *data = characteristic.value;
     if (data) [self recordValue:data];
 }
@@ -190,7 +196,7 @@ static BOOL savePrivate(NSString *path, NSArray *frames, BOOL complete, NSError 
     if (self.done) return;
     NSNumber *length = @(data.length);
     self.lengths[length] = @([self.lengths[length] unsignedIntegerValue] + 1);
-    NSDictionary *sample = frame(data, NSProcessInfo.processInfo.systemUptime - self.started);
+    NSDictionary *sample = frame(data, NSProcessInfo.processInfo.systemUptime - self.started, self.compact);
     if (sample && self.frames.count < MaxFrames) [self.frames addObject:sample];
     if (self.frames.count == MaxFrames) [self finish:nil];
 }
@@ -228,8 +234,17 @@ static int selfTest(void) {
     if (!isSyncRight([NSData dataWithBytes:adv length:26])) return 1;
     adv[12] = 1;
     if (isSyncRight([NSData dataWithBytes:adv length:26]) || isSyncRight([NSData data])) return 1;
-    if (featureCommand(2).length != 12 || frame([NSData data], 0)) return 1;
-    if (!frame([NSMutableData dataWithLength:63], 0)) return 1;
+    if (featureCommand(2).length != 12 || frame([NSData data], 0, NO)) return 1;
+    for (NSNumber *compact in @[@NO, @YES]) {
+        BOOL selected = compact.boolValue;
+        SensorReader *selection = [SensorReader new];
+        selection.compact = selected;
+        NSString *expected = selected ? CompactInputID : InputID;
+        if (![[selection inputUUID] isEqual:[CBUUID UUIDWithString:expected]]) return 1;
+        NSDictionary *sample = frame([NSMutableData dataWithLength:63], 0, selected);
+        if (![sample[@"kind"] isEqual:selected ? @"right" : @"common"]
+                || frame([NSMutableData dataWithLength:64], 0, selected)) return 1;
+    }
     NSString *directory = [NSTemporaryDirectory() stringByAppendingPathComponent:NSUUID.UUID.UUIDString];
     NSString *output = [directory stringByAppendingPathComponent:@"capture.json"];
     NSError *error = nil;
@@ -237,6 +252,7 @@ static int selfTest(void) {
     NSDictionary *attrs = [[NSFileManager defaultManager] attributesOfItemAtPath:output error:nil];
     if (([attrs[NSFilePosixPermissions] unsignedIntValue] & 0777) != 0600) return 1;
     SensorReader *reader = [SensorReader new];
+    reader.compact = YES;
     reader.frames = [NSMutableArray array];
     reader.lengths = [NSMutableDictionary dictionary];
     reader.output = [directory stringByAppendingPathComponent:@"bounded.json"];
@@ -245,8 +261,9 @@ static int selfTest(void) {
         [reader recordValue:input];
     }
     if (reader.frames.count != MaxFrames || !reader.done || reader.result != 0) return 1;
+    if (![reader.frames[0][@"kind"] isEqual:@"right"]) return 1;
     SensorReader *partial = [SensorReader new];
-    partial.frames = [NSMutableArray arrayWithObject:frame(input, 0)];
+    partial.frames = [NSMutableArray arrayWithObject:frame(input, 0, NO)];
     partial.lengths = [NSMutableDictionary dictionary];
     partial.output = [directory stringByAppendingPathComponent:@"partial.json"];
     [partial finish:@"Synthetic disconnect test"];
@@ -262,8 +279,13 @@ int main(int argc, const char *argv[]) {
     @autoreleasepool {
         setbuf(stdout, NULL);
         if (argc == 2 && strcmp(argv[1], "--self-test") == 0) return selfTest();
-        if (argc != 3) {
-            fprintf(stderr, "Usage: mac-sensor-reader PRIVATE_OUTPUT SECONDS\n");
+        if (argc != 3 && argc != 4) {
+            fprintf(stderr, "Usage: mac-sensor-reader PRIVATE_OUTPUT SECONDS [common|right]\n");
+            return 2;
+        }
+        NSString *report = argc == 4 ? [NSString stringWithUTF8String:argv[3]] : @"common";
+        if (![@[@"common", @"right"] containsObject:report]) {
+            fprintf(stderr, "Report must be common or right.\n");
             return 2;
         }
         char *end = NULL;
@@ -277,6 +299,8 @@ int main(int argc, const char *argv[]) {
         SensorReader *reader = [SensorReader new];
         reader.output = output;
         reader.seconds = seconds;
+        reader.compact = [report isEqualToString:@"right"];
+        printf("Selected %s input reports.\n", report.UTF8String);
         puts("Native reader may request Bluetooth permission. It never requests pairing.");
         [reader start];
         CFRunLoopRun();

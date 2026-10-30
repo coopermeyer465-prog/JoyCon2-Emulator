@@ -22,3 +22,10 @@ class CliTests(unittest.TestCase):
                     patch("joycon2_emulator.backend.serve", new_callable=AsyncMock) as serve:
                 main()
             self.assertEqual(serve.call_args.args[-1], expected)
+
+    def test_mouse_raw_surface_is_forwarded(self):
+        with patch("sys.argv", ["j2", "control", "mouse", "--dx", "5", "--surface", "50"]), \
+                patch("joycon2_emulator.control.send", new_callable=AsyncMock, return_value={"ok": True}) as send, \
+                contextlib.redirect_stdout(io.StringIO()):
+            main()
+        self.assertEqual(send.call_args.args[1]["surface"], 50)

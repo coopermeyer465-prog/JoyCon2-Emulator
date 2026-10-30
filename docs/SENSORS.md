@@ -16,6 +16,10 @@
 The optical surface byte is incompletely documented. Our experimental convention
 uses `0` for contact and `255` for lifted, as demonstrated in XD2Joy; it is not
 calibrated height, surface quality or confirmed Switch behavior.
+The CLI's optional `--surface 0..254` overrides the contact byte for experiments;
+it is held only for the same 250 ms lease, with no replay of movement deltas.
+It cannot be combined with `--lifted`. The default remains zero for compatibility,
+not because zero has been verified as the correct contact value.
 
 ![Mouse tutorial awaiting native cursor input](images/mouse-test-pending.png)
 
@@ -50,7 +54,9 @@ and lengths, not private keys or dumps, for further protocol work.
 
 Deltas are raw signed 16-bit counts in native sensor axes, not screen pixels or
 stick coordinates. Each accepted request is placed in one report at most, then
-returns to zero movement/lifted. Undelivered movement expires after 250 ms.
+returns to zero movement. Surface contact lasts until 250 ms after the request;
+new movements refresh that deadline, but polling does not. Explicit lift or
+release clears contact immediately. Undelivered movement expires after 250 ms.
 Only one movement may be pending: another is rejected rather than accumulated.
 Status does not consume it, and a mouse request does not replace held buttons
 or a stick sequence. Release, disconnect, registration and feature disable prevent
@@ -136,6 +142,30 @@ root access, a HID driver or a device-pairing confirmation.
 ./scripts/capture-mac-sensors --self-test
 ./scripts/capture-mac-sensors --output .state/sensors-native-stationary.json --seconds 5
 ```
+
+For an experimental native capture of the console's compact right-half format,
+add `--report right` and choose a new output filename. This selects the `d5a9...`
+input characteristic instead of the common `ab7d...fd2` characteristic; saved
+frames are labeled `right` rather than `common`. The same two runtime feature
+commands, bounds and private-file safeguards apply. A physical stationary
+sensor-edge capture saved 405 compact reports, including 334 with nonzero motion
+data and a motion length of 40. The optical surface byte varied even while
+stationary; treating zero as a calibrated contact reading is not established.
+This capture does not establish working emulated mouse or gyro. Common captures cannot be
+used as compact frames: their mouse fields and motion encoding differ.
+A subsequent physical movement capture saved 750 reports, including 679 with
+40-byte motion data and 657 with nonzero optical deltas. Active surface bytes
+ranged from 31 to 122; no nonzero movement coincided with a zero surface byte.
+These are observations from one owned controller and surface, not calibrated
+limits or proof that the optical byte alone controls cursor visibility.
+An emulator-only tutorial burst with surface byte 50 and 60 accepted requests
+produced no visible change. Neither the contact lease nor this surface-byte
+adjustment established usable mouse emulation.
+
+Offline checks of the compact captures found that candidate fixed gyro/sample
+offsets from XD2Joy did not yield coherent stationary readings for this capture.
+Their interpretation is not validated here; no guessed gyro values, copied
+motion frames or fabricated IMU capability have been added to the BLE stream.
 
 Put exactly one owned right Joy-Con into SYNC mode first. Discovery filters for
 the right-half product and a zeroed reconnect-host field; multiple matching

@@ -112,7 +112,7 @@ async def serve(address, transport, bond_file, seconds, calibration=None, test_b
                 if request.command == 0x0C:
                     state.mouse_enabled = bool(controller.features.enabled & 0x10)
                     if not state.mouse_enabled:
-                        state.pending_mouse = None
+                        state.clear_mouse()
                     LOG.info("Implemented input features enabled: 0x%02x", controller.features.enabled)
                 if pairing.finalized and (request.command, request.subcommand) in ((0x15, 3), (3, 9)):
                     pairing.save(bond_file)

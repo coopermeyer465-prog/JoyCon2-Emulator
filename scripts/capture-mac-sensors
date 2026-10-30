@@ -12,6 +12,7 @@ def main():
     parser.add_argument("--output", type=Path)
     parser.add_argument("--seconds", type=int, default=5, choices=range(1, 16))
     parser.add_argument("--self-test", action="store_true")
+    parser.add_argument("--report", choices=("common", "right"), default="common")
     args = parser.parse_args()
     if platform.system() != "Darwin":
         parser.error("This helper requires macOS")
@@ -29,7 +30,8 @@ def main():
                         "-Xlinker", "__info_plist", "-Xlinker", str(plist),
                         str(source), "-o", str(binary)], check=True)
         subprocess.run(["codesign", "--force", "--sign", "-", str(binary)], check=True)
-    command = [str(binary), "--self-test"] if args.self_test else [str(binary), str(args.output.absolute()), str(args.seconds)]
+    command = ([str(binary), "--self-test"] if args.self_test else
+               [str(binary), str(args.output.absolute()), str(args.seconds), args.report])
     return subprocess.run(command).returncode
 
 

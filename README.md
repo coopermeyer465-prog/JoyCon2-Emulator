@@ -15,8 +15,9 @@ Bluetooth captures, or pairing keys are distributed.
 
 - [Combined NXBT web interface](integrations/nxbt/README.md): choose Classic
   Pro Controller or BLE Joy-Con 2 (R), with keyboard, Gamepad and Lic2 WebHID
-  input, automatic SL+SR registration and C control. Native optical-mouse
-  reports are planned, not implemented; mouse-to-stick mode is not included.
+  input, automatic SL+SR registration and C control. Native optical mouse is
+  not exposed in the web UI; the experimental CLI report path is not usable yet.
+  Mouse-to-stick mode is not included.
 - [Command control](#command-control): timed buttons, calibrated stick input and
   JSON sequences, independent of the browser.
 - [Sleep wake tools](integrations/wake/README.md): the tested RTL8761BU wake
@@ -55,7 +56,7 @@ through the owner's capture card. Native optical-mouse mode is not included.
 | Left/right combined controller | Not implemented; neither one-radio nor two-radio pair is validated |
 | Native optical mouse | Console enables feature; no cursor in tutorial yet; experimental command/report path only |
 | Gyro | Offline common-report codec only; no live gyro support |
-| Native Mac sensor capture | Separate CoreBluetooth diagnostic; 401 private stationary input reports captured; no pairing requested |
+| Native Mac sensor capture | Common and compact right-half reports captured privately, stationary and moving; no pairing requested |
 | Physical rumble, NFC, firmware updates | Not implemented |
 
 This is **not a port of XD2Joy firmware to a USB dongle** and is not an NXBT fork.

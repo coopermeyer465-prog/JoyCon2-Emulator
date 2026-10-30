@@ -45,7 +45,8 @@ class MouseTests(unittest.TestCase):
         self.assertTrue(state.execute({"op": "status"}, 0.1)["mouse_pending"])
         self.assertTrue(state.execute({"op": "status"}, 0.1)["mouse_pending"])
         self.assertEqual(state.take_mouse(0.1), (10, -7, 0))
-        self.assertEqual(state.take_mouse(0.11), (0, 0, 255))
+        self.assertEqual(state.take_mouse(0.11), (0, 0, 0))
+        self.assertEqual(state.take_mouse(0.25), (0, 0, 255))
         self.assertEqual(state.snapshot(0.11)[0], ("R",))
 
     def test_expiry_release_loss_of_readiness_and_feature_disable(self):
@@ -76,6 +77,48 @@ class MouseTests(unittest.TestCase):
         self.assertEqual(state.take_mouse(0.11), (2, 0, 0))
         state.execute({"op": "mouse", "lifted": True}, 0.12)
         self.assertEqual(state.take_mouse(0.13), (0, 0, 255))
+        self.assertEqual(state.take_mouse(0.14), (0, 0, 255))
+
+    def test_contact_refreshes_only_from_new_movements(self):
+        state = self.state()
+        state.execute({"op": "mouse", "dx": 1}, 0)
+        self.assertEqual(state.take_mouse(0.01), (1, 0, 0))
+        state.execute({"op": "mouse", "dy": 2}, 0.1)
+        self.assertEqual(state.take_mouse(0.11), (0, 2, 0))
+        for now in (0.12, 0.25, 0.34):
+            self.assertEqual(state.take_mouse(now), (0, 0, 0))
+        self.assertEqual(state.take_mouse(0.35), (0, 0, 255))
+
+    def test_raw_surface_is_preserved_during_contact_lease(self):
+        for surface in (0, 50, 254):
+            state = self.state()
+            state.execute({"op": "mouse", "dx": 7, "surface": surface}, 0)
+            self.assertEqual(state.take_mouse(0.01), (7, 0, surface))
+            self.assertEqual(state.take_mouse(0.1), (0, 0, surface))
+            self.assertEqual(state.take_mouse(0.25), (0, 0, 255))
+        for surface in (-1, 255, True, 1.5, None):
+            with self.subTest(surface=surface), self.assertRaises(ValueError):
+                self.state().execute({"op": "mouse", "surface": surface}, 0)
+        with self.assertRaises(ValueError):
+            self.state().execute({"op": "mouse", "surface": 50, "lifted": True}, 0)
+
+    def test_active_contact_clears_on_release_or_readiness_loss(self):
+        for action in ("release", "stop", "registering", "ready", "mouse_enabled", "clear"):
+            state = self.state()
+            state.execute({"op": "mouse", "dx": 1}, 0)
+            state.take_mouse(0.01)
+            if action in ("release", "stop"):
+                state.execute({"op": action}, 0.02)
+            elif action == "clear":
+                state.clear_mouse()
+            else:
+                setattr(state, action, action == "registering")
+            with self.subTest(action=action):
+                self.assertEqual(state.take_mouse(0.03),
+                                 None if action == "mouse_enabled" else (0, 0, 255))
+                state.mouse_enabled = state.ready = True
+                state.registering = state.stopping = False
+                self.assertEqual(state.take_mouse(0.04), (0, 0, 255))
 
     def test_rejects_without_capability_console_enable_or_ready(self):
         for attribute in ("mouse_supported", "mouse_enabled", "ready"):
@@ -99,7 +142,9 @@ class MouseSocketTests(unittest.IsolatedAsyncioTestCase):
                 result = await send(server.path, {"op": "mouse", "dx": -3})
                 self.assertTrue(result["ok"])
                 self.assertTrue(result["mouse_pending"])
-                self.assertEqual(state.take_mouse(state.pending_mouse[1] - 0.1), (-3, 0, 0))
-                self.assertEqual(state.take_mouse(0), (0, 0, 255))
+                expiry = state.pending_mouse[1]
+                self.assertEqual(state.take_mouse(expiry - 0.1), (-3, 0, 0))
+                self.assertEqual(state.take_mouse(expiry - 0.05), (0, 0, 0))
+                self.assertEqual(state.take_mouse(expiry), (0, 0, 255))
             finally:
                 await server.close()

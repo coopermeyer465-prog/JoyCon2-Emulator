@@ -2,6 +2,19 @@
 
 ## 2026-10-30
 
+### Compact Capture and Mouse Follow-Up
+
+- Added native `--report right` capture with distinct frame labels and self-tests.
+  Saved 405 stationary and 750 moving compact reports privately; no report arrays
+  or device identifiers are distributed.
+- Added a bounded 250 ms optical contact lease without replaying relative deltas,
+  and an optional validated raw `--surface` byte for command-driven experiments.
+  Release, feature disable and readiness loss clear contact.
+- Tutorial tests with the contact lease and raw surface value 50 still produced
+  no visible cursor. No live gyro capability is advertised; candidate compact
+  sample interpretations remain unverified.
+- All 83 Python tests and native reader self-tests pass.
+
 ### Native Sensor Capture
 
 - Increased the native reader's bound to 2048 reports so human movement tests

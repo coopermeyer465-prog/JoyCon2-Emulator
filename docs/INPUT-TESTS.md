@@ -5,6 +5,19 @@ Bumble 0.0.235, one emulated right Joy-Con 2, with the Switch observed through
 the owner's Elgato 4K S. No settings, parental restrictions or calibration values
 were changed. No GameChat session was opened.
 
+Later HOME tests were observed directly by the owner with Elgato disconnected.
+Raw positive X moved right; the sideways-right transform instead moved up in
+that session, so grip orientation must not be assumed from earlier registration.
+An initial mouse-only burst appeared to clear selection but showed no cursor.
+A repeat with a bounded 250 ms surface-contact lease produced no visible change,
+despite all 60 requests being accepted locally. Mouse operation remains unverified;
+local queue receipts and feature negotiation do not establish console acceptance.
+A further 60-request mouse-only burst in How to Use Mouse Controls, with the
+contact lease active, also produced no visible change according to the owner.
+A later tutorial burst used raw surface value 50, within the physical controller's
+observed range, and also produced no visible change. Surface-byte adjustment
+alone has not established usable mouse emulation.
+
 | Input | Software verification | Console observation |
 | --- | --- | --- |
 | A, B, X, Y | Bridge, timed state, exact report bit, release | All four appeared in Test Controller Buttons |

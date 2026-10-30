@@ -51,21 +51,33 @@ class InputState:
         self.mouse_supported = False
         self.mouse_enabled = False
         self.pending_mouse = None
+        self.mouse_contact_until = 0
+        self.mouse_surface = 255
+
+    def clear_mouse(self):
+        self.pending_mouse = None
+        self.mouse_contact_until = 0
+        self.mouse_surface = 255
 
     def release(self):
         self.steps = []
-        self.pending_mouse = None
+        self.clear_mouse()
         self.generation += 1
 
     def take_mouse(self, now):
         """Consume one relative movement, never repeat it as a held state."""
         pending, self.pending_mouse = self.pending_mouse, None
         if not self.mouse_supported or not self.mouse_enabled:
+            self.clear_mouse()
             return None
-        if (pending is not None and now < pending[1] and self.ready
-                and not self.registering and not self.stopping and self.mouse_enabled):
+        if not self.ready or self.registering or self.stopping:
+            self.clear_mouse()
+            return (0, 0, 255)
+        if pending is not None and now < pending[1]:
+            self.mouse_surface = pending[0][2]
+            self.mouse_contact_until = pending[1] if self.mouse_surface != 255 else 0
             return pending[0]
-        return (0, 0, 255)
+        return (0, 0, self.mouse_surface if now < self.mouse_contact_until else 255)
 
     def snapshot(self, now):
         elapsed = now - self.started
@@ -83,7 +95,7 @@ class InputState:
         operation = request.get("op")
         allowed = {"set": {"op", "state"}, "sequence": {"op", "steps"},
                    "release": {"op"}, "status": {"op"}, "stop": {"op"},
-                   "mouse": {"op", "dx", "dy", "lifted"}}
+                   "mouse": {"op", "dx", "dy", "lifted", "surface"}}
         if not isinstance(operation, str) or operation not in allowed or set(request) - allowed[operation]:
             raise ValueError("Unknown operation or request fields")
         if operation == "mouse":
@@ -96,9 +108,12 @@ class InputState:
             lifted = request.get("lifted", False)
             if type(lifted) is not bool or (lifted and (dx or dy)):
                 raise ValueError("Lifted mouse must have zero movement")
+            surface = request.get("surface", 0)
+            if type(surface) is not int or not 0 <= surface <= 254 or (lifted and "surface" in request):
+                raise ValueError("Raw surface must be 0..254 and cannot accompany lifted")
             if self.pending_mouse is not None and now < self.pending_mouse[1]:
                 raise ValueError("A mouse movement is already pending")
-            self.pending_mouse = ((dx, dy, 255 if lifted else 0), now + 0.25)
+            self.pending_mouse = ((dx, dy, 255 if lifted else surface), now + 0.25)
         elif operation in ("set", "sequence"):
             if not self.ready or self.registering or self.stopping:
                 raise ValueError("Controller is not ready; no input was queued")

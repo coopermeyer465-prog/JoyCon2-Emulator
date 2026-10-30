@@ -63,6 +63,8 @@ def main():
     mouse.add_argument("--dx", type=int, default=0)
     mouse.add_argument("--dy", type=int, default=0)
     mouse.add_argument("--lifted", action="store_true")
+    mouse.add_argument("--surface", type=int, choices=range(255), metavar="0..254",
+                       help="Experimental raw surface byte, not calibrated distance")
     args = parser.parse_args()
     if args.command == "doctor":
         print(json.dumps({"platform": platform.system(), "playable": False,
@@ -101,6 +103,8 @@ def main():
             request = {"op": "sequence", "steps": json.loads(args.file.read_text())}
         elif args.action == "mouse":
             request = {"op": "mouse", "dx": args.dx, "dy": args.dy, "lifted": args.lifted}
+            if args.surface is not None:
+                request["surface"] = args.surface
         try:
             result = asyncio.run(send(args.socket, request))
         except (OSError, ValueError, asyncio.TimeoutError) as error:
