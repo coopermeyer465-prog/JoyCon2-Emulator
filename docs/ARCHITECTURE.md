@@ -5,6 +5,8 @@
 - `protocol.py`: pure advertisement/command/report encoders; no hardware writes.
 - `pairing.py`: explicit address -> key -> challenge -> finalize state machine;
   AES delegated to PyCA. Finalized records are written atomically with mode 0600.
+- `controller.py`: dispatches implemented commands; handles documented initialization
+  07/01 and delegates pairing, while rejecting unknown commands.
 - `backend.py`: Bumble HCI-socket transport, vendor GATT services, pairing notifications,
   and a bounded neutral-report lab. The adapter keeps its own public identity.
 - `cli.py`: read-only diagnostics, local capture inspection and opt-in lab startup.
@@ -19,6 +21,7 @@
 2. Handle the console initialization command sequence, report-mode/feature changes,
    and required memory reads using legitimately obtained/generated calibration.
    Do not pretend unsupported commands have succeeded.
+   Hardware testing has advanced past 07/01 to a 64-byte read at 0x13000.
 3. Validate custom Nintendo pairing, link encryption, private key persistence,
    bond reload and reconnect across host/console restarts.
 4. Add user input with neutral-on-disconnect behavior. Reuse the existing measured

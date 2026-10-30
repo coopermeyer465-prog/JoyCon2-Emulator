@@ -29,3 +29,17 @@ The wake prototype's success is not proof of a working gameplay controller. Any
 new hardware results must record software/firmware version, procedure, expected
 versus observed behavior, and restoration of the adapter to its original state.
 Do not publish real adapter/console addresses or LTKs in issues or logs.
+
+## Console Connection Test
+
+With Controllers > Change Grip/Order open, the console connected to the Bumble
+peripheral and sent 07/01. Initially this command retried because it had no handler.
+After adding its documented response, the console advanced to 02/04: a 64-byte
+memory read at 0x13000. That read is deliberately left unimplemented until the
+factory configuration/calibration format is supplied correctly.
+
+The diagnostic run reported an initial connection interval of 15.0 ms, zero
+peripheral latency and a 2000 ms supervision timeout. No disconnect was reported
+during the bounded exchange, but this is NOT a sustained gameplay/stability test,
+and says nothing yet about a later switch to a 5 ms interval. Pairing/encryption
+was not completed. Thirteen unit tests pass with the new command dispatcher.

@@ -18,10 +18,11 @@ Bluetooth captures, or pairing keys are distributed.
 | Nintendo command framing and pairing challenge/response | Implemented, known-vector tested |
 | Vendor GATT database with expected attribute handles | Implemented on Bumble; layout tested |
 | Bounded Linux BLE peripheral lab | Implemented; hardware results in docs/HARDWARE.md |
+| Console discovery and initial command exchange | Console connected at 15 ms; accepted documented 07/01 response |
 | Stock USB adapter sleep wake | Local prototype and revised connectable/three-burst test both woke one console |
 | Reliable sleep wake after physical Joy-Con docking | Old prototype regressed; revised test passed once, repeat reliability unproven |
 | 5 ms connection interval on Realtek RTL8761BU | Unverified; possible hardware/firmware blocker |
-| Console initialization, calibration/flash responses | Not implemented |
+| Console initialization, calibration/flash responses | First 07/01 handled; next request is 64 bytes at 0x13000, not implemented |
 | Bond reload, reliable reconnect, LTK interoperability | Not validated; bond reload not implemented |
 | Live gamepad/WebHID relay, left/right combined controller | Not implemented |
 | Gyro, mouse, rumble, NFC, firmware updates | Not implemented |

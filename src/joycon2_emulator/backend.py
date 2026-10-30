@@ -12,7 +12,7 @@ from bumble.gatt import Characteristic, CharacteristicValue, Descriptor, Service
 from bumble.hci import Address, OwnAddressType
 from bumble.transport import open_transport
 
-from .pairing import PairingSession
+from .controller import Controller
 from .protocol import Command, advertisement, right_report
 
 
@@ -76,17 +76,18 @@ async def serve(address, transport, bond_file, seconds):
         config.gap_service_enabled = config.gatt_service_enabled = False
         config.classic_enabled = False
         device = Device.from_config_with_hci(config, hci.source, hci.sink)
-        pairing = PairingSession(address)
+        controller = Controller(address)
+        pairing = controller.pairing
         pending = set()
 
         async def process_command(connection, data, combined):
             try:
                 request = Command.parse(data, combined)
                 LOG.info("Command %02x/%02x (%d bytes)", request.command, request.subcommand, len(request.payload))
-                if request.command != 0x15:
-                    LOG.warning("Initialization command not implemented: %02x/%02x", request.command, request.subcommand)
-                    return
-                response = pairing.handle(request.subcommand, request.payload)
+                if (request.command, request.subcommand) == (2, 4) and len(request.payload) == 8:
+                    LOG.info("Memory read: offset=0x%08x length=%d (no memory contents logged)",
+                             int.from_bytes(request.payload[4:8], "little"), request.payload[0])
+                response = controller.handle(request)
                 if pairing.finalized:
                     pairing.save(bond_file)
                 await device.notify_subscribers(response_characteristic, request.response(response))
@@ -112,6 +113,9 @@ async def serve(address, transport, bond_file, seconds):
 
         def connected(connection):
             LOG.info("BLE link established; console compatibility is NOT yet verified")
+            LOG.info("Connection parameters: %s", connection.parameters)
+            connection.on("connection_parameters_update",
+                          lambda: LOG.info("Connection parameters updated: %s", connection.parameters))
             connection.on("disconnection", lambda reason: LOG.info("Disconnected: %s", reason))
 
         device.on("connection", connected)
