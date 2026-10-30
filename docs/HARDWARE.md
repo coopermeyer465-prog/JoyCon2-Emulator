@@ -127,3 +127,22 @@ console, but a positive raw X command moved down rather than right. An earlier
 two-direction trial was reported as moving left without identifying which pulse
 caused it. The new opt-in `sideways-right` inverse rotation is unit-tested but
 not yet verified in all four screen directions; raw mode remains the default.
+
+## Combined Web Integration (2026-10-30)
+
+The optional NXBT overlay starts the BLE backend in a separate Python environment
+and reached an encrypted, initialized connection from the browser using the saved
+bond. The owner reported that a visible connection was not enough to register the
+controller; automatic 250 ms SL+SR registration was added with browser input held
+off during the pulse. Explicit SL, SR and C controls were added. These features
+are not claims of native optical-mouse
+reports or unrestricted GameChat access. Earlier positive-X sideways mapping
+was confirmed to move right, but a 200 ms pulse moved farther than intended.
+Elgato capture subsequently confirmed a manual SL+SR command changed an
+unregistered grey half into a registered right Joy-Con with a player LED. An
+immediate automatic pulse had not registered it; a two-second initialization
+grace was added before the automatic pulse, matching the prior diagnostic test.
+After reconnecting with the grace period, automatic SL+SR was followed by a new
+player-LED command and the capture showed the registered right half. Browser
+keyboard A also exited the controller prompt. A temporary mouse-to-stick prototype
+was removed at the owner's request. Native optical-mouse reports remain future work.

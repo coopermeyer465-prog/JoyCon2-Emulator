@@ -57,6 +57,7 @@ class InputStateTests(unittest.TestCase):
         self.state.ready = False
         with self.assertRaises(ValueError):
             self.state.execute({"op": "set", "state": {}})
+
         self.state.ready = True
         for steps in ([], [{}] * 257, [{"duration": 10}] * 31):
             with self.assertRaises(ValueError):
@@ -66,6 +67,16 @@ class InputStateTests(unittest.TestCase):
         self.assertTrue(self.state.stopping)
         with self.assertRaises(ValueError):
             self.state.execute({"op": "set", "state": {}})
+
+    def test_registration_blocks_user_input_and_reports_not_ready(self):
+        self.state.registering = True
+        result = self.state.execute({"op": "status"})
+        self.assertFalse(result["ready"])
+        self.assertTrue(result["registering"])
+        with self.assertRaises(ValueError):
+            self.state.execute({"op": "set", "state": {"buttons": ["A"]}})
+        self.state.registering = False
+        self.assertTrue(self.state.execute({"op": "status"})["ready"])
 
 
 class ControlSocketTests(unittest.IsolatedAsyncioTestCase):

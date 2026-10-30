@@ -17,8 +17,16 @@
   Apache-2.0 Bluetooth host, transport, ATT/GATT, notification and crypto integration.
   Used as a dependency, not redistributed as project-owned code.
 - **Brikwerk / NXBT**: https://github.com/Brikwerk/nxbt
-  Existing controller-emulation project used for the separate working Classic-BT
-  control setup. Architectural inspiration; no NXBT source is included here.
+  Existing Classic-BT Pro Controller implementation and web UI by Reece Walsh.
+  The optional `integrations/nxbt/web` overlay adapts its Flask/Socket.IO app,
+  JavaScript, template and stylesheet, preserving local Lic2 WebHID changes.
+  Upstream's MIT notice is retained in `integrations/nxbt/LICENSE.NXBT`; the
+  original NXBT source/assets must be installed separately. NXBT's Bluetooth
+  engine is not copied into this project's BLE engine.
+- **Local SwitchRemotePlay Lic2 decoder**:
+  The pre-existing working HID descriptor decoder and NXBT packet mapping are
+  preserved in the NXBT overlay as `static/js/lic2-hid.js`. This is host-side
+  read-only input decoding, not Nintendo firmware or a controller memory dump.
 - **Bill-git1 / Switch2-RPI-Wake**:
   https://github.com/Bill-git1/Switch2-RPI-Wake
   Raw HCI wake replay reference for the earlier local wake experiment.
@@ -32,6 +40,7 @@
 - **PyCA / cryptography**: https://github.com/pyca/cryptography
   Existing AES implementation; no custom cryptographic primitive is implemented here.
 
-The Python application in this repository is new project code. Crediting a source
+The BLE Python application is new project code; the optional NXBT overlay contains
+adapted upstream code as identified above. Crediting a source
 does not imply endorsement or a license to redistribute its firmware/captures.
 Future copied/adapted code must retain the original notices and compatible license.

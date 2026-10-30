@@ -4,35 +4,78 @@ An experimental Joy-Con 2 BLE emulator for Linux and USB-passthrough virtual
 machines, including Apple Silicon Macs. The goal is one software stack for
 pairing, waking, reconnecting, and sending controller input to a Nintendo Switch 2.
 
-**Early research milestone, NOT a working gameplay controller yet.**
-Do not buy hardware on the assumption that this will work. Keep an existing
-controller/NXBT setup available. No Nintendo firmware, flash dumps, personal
+**Working experimental right-Joy-Con input on one tested Switch 2 setup.**
+Sleep wake, registration, A/B, short HOME and stick movement have been confirmed
+by the console owner. This is not complete Joy-Con emulation or broad hardware
+certification. Keep an existing controller available and do not buy hardware on
+the assumption that another adapter revision will work. No Nintendo firmware, flash dumps, personal
 Bluetooth captures, or pairing keys are distributed.
+
+## Start Here
+
+- [Combined NXBT web interface](integrations/nxbt/README.md): choose Classic
+  Pro Controller or BLE Joy-Con 2 (R), with keyboard, Gamepad and Lic2 WebHID
+  input, automatic SL+SR registration and C control. Native optical-mouse
+  reports are planned, not implemented; mouse-to-stick mode is not included.
+- [Command control](#command-control): timed buttons, calibrated stick input and
+  JSON sequences, independent of the browser.
+- [Sleep wake tools](integrations/wake/README.md): the tested RTL8761BU wake
+  prototype, using your private capture and restoring the adapter afterward.
+- [Hardware evidence](docs/HARDWARE.md): successful tests, regressions and limits.
+- [Changelog](CHANGELOG.md): implementation milestones and verification.
+
+The combined web integration is newly implemented and separately tested; the
+physical input confirmations above were obtained through the command backend.
+Automatic registration and browser keyboard input were subsequently checked
+through the owner's capture card. Native optical-mouse mode is not included.
+
+![Combined NXBT and Joy-Con 2 interface](docs/images/nxbt-joycon2.png)
 
 ## Status
 
 | Component | Current state |
 | --- | --- |
 | Nintendo discovery/reconnect/wake advertisement encoding | Implemented, unit tested |
-| Right Joy-Con 2 button/stick report encoding | Implemented; user confirmed SL+SR registered a single right Joy-Con; live relay still absent |
+| Right Joy-Con 2 button/stick report encoding | Implemented; SL+SR registration, A/B, short HOME and movement confirmed |
 | Nintendo command framing and pairing challenge/response | Implemented; completed exchange with one console |
 | Vendor GATT database with expected attribute handles | Implemented on Bumble; layout tested |
-| Bounded Linux BLE peripheral lab | Implemented; hardware results in docs/HARDWARE.md |
+| Linux BLE peripheral | Bounded diagnostics and persistent command service implemented |
 | Console discovery and initial command exchange | Console accepted metadata/version queries and advanced through calibration reads |
 | Stock USB adapter sleep wake | Local prototype and revised connectable/three-burst test both woke one console |
-| Reliable sleep wake after physical Joy-Con docking | Old prototype regressed; revised test passed once, repeat reliability unproven |
+| Sleep wake after physical Joy-Con docking | Revised connectable three-burst prototype worked; broad repeat reliability unproven |
 | 5 ms connection interval on Realtek RTL8761BU | Observed on the test adapter, including an encrypted connection; sustained gameplay untested |
 | Console initialization, calibration/flash responses | Generated metadata, allowlisted private calibration import, erased user-calibration slots; incomplete overall |
 | Bond reload and LTK interoperability | Implemented per-address keys; encrypted reconnect observed after process restart; long-term reliability untested |
 | Player LEDs and vibration requests | Virtual state/sink only, no physical output |
 | Opt-in button smoke tests | HOME 50 ms, join/A/B 250 ms; join confirmed; old HOME pulse opened Quick Settings |
 | Command-driven buttons/right stick | Timed release, sequences and private local socket implemented; 50 ms HOME tap confirmed after transmit-queue fix; stick behavior unverified |
-| Live gamepad/WebHID relay, left/right combined controller | Not implemented |
+| NXBT web integration | Pro / Joy-Con 2 (R) selector; bounded input bridge; one backend per adapter |
+| Left/right combined controller | Not implemented; neither one-radio nor two-radio pair is validated |
 | Gyro, mouse, physical rumble, NFC, firmware updates | Not implemented |
 
 This is **not a port of XD2Joy firmware to a USB dongle** and is not an NXBT fork.
 It uses [Bumble](https://github.com/google/bumble) for the BLE host/GATT engine.
-Protocol research and inspiration are credited in [CREDITS.md](CREDITS.md).
+Protocol research and adapted NXBT code are credited in [CREDITS.md](CREDITS.md).
+
+## Tested Setup And Limits
+
+Apple Silicon Mac, VirtualBox Ubuntu 22.04 ARM64/Linux 5.15, Bumble 0.0.235 and a
+TP-Link USB 2357:0604 identified as Realtek RTL8761BU with stock Linux firmware.
+The BLE backend has observed encrypted 5 ms and 15 ms links. It does not use the
+Mac's internal Bluetooth or native CoreBluetooth APIs.
+
+One right half means one stick and right-side buttons, not a Pro Controller's
+full two-stick layout. Gyro, mouse, NFC and physical rumble are absent. Positive
+raw X moved down when registered sideways; opt-in `sideways-right` mapping
+produced screen-right movement, but the other mapped directions still need
+isolated checks. A 200 ms movement traveled farther than intended; use short
+pulses for menu navigation and do not assume exact one-item movement.
+
+Both Joy-Cons could be a future feature. A pair needs distinct identities,
+left-side protocol/calibration support and concurrent BLE links. Whether one
+RTL8761BU can provide the required advertising identities and timing is untested.
+Two adapters would give each half its own radio, but do not by themselves add
+missing left-half software. Do not purchase another adapter as a guaranteed fix.
 
 ## Install And Run Tests
 
@@ -57,8 +100,8 @@ Bluetooth adapter passed through. Never pass through the Mac's internal radio.
 
 ## Experimental Peripheral Lab
 
-**This is not a full gameplay controller yet.** It is intended to collect missing
-initialization steps and determine whether the adapter can hold a BLE link.
+**This is not a full gameplay controller yet.** Diagnostic runs collect missing
+initialization steps; command control below supplies tested basic right-half input.
 Use the adapter's own address, NOT the address of a physical Joy-Con.
 
 1. Make sure your USB adapter has working Linux firmware and appears in `hciconfig -a`.
@@ -91,8 +134,9 @@ enables the implemented input features. To send one explicit SL+SR registration
 pulse, add `--test-button join` to `serve`. Alternatives are `home`, `a` and `b`.
 The pulse starts two seconds after the subscribed report stream starts, lasts
 50 ms for HOME or 250 ms for join/A/B, then releases. The earlier 250 ms HOME
-test was interpreted as a hold and opened Quick Settings; the shorter timing
-needs another physical-console test. Keep the console on the appropriate screen before starting.
+test was interpreted as a hold and opened Quick Settings. After adding HCI queue
+drain, a 50 ms command-driven tap returned from Settings to HOME. Keep the console
+on the appropriate screen before starting.
 This is a diagnostic input test, not the live Lic2/WebHID relay.
 
 ## Command Control
@@ -202,8 +246,9 @@ Changing to connectable advertisements in three short bursts woke the console
 in a subsequent user-confirmed test. This changed two variables and does not
 isolate the cause or prove long-term reliability. Docking
 must not be assumed to rotate the address, keys, or packet without evidence.
-This repo currently includes advertisement inspection/encoding, not the original
-machine-specific wake launcher or its private capture.
+The replay, read-only scanner and Realtek configuration helper are now published
+under [integrations/wake](integrations/wake/README.md). Machine-specific launchers,
+private captures and configuration backups are not distributed.
 
 To inspect an existing local capture produced by the prototype:
 

@@ -68,6 +68,7 @@ def main():
                    "--calibration", ".state/factory-calibration.json", "--control-socket", ".state/control.sock", "--seconds", "0"]
         script = ("set -eu\nif systemctl is-active --quiet joycon2-command.service; then exit 0; fi\n"
                   "trap 'systemctl start bluetooth nxbt-web' EXIT\n"
+                  "systemctl stop joycon2-web.service 2>/dev/null || true\n"
                   "systemctl stop nxbt-web bluetooth\nhciconfig hci0 down\n" + shlex.join(service) + "\ntrap - EXIT\n")
         remote("sudo bash -c " + shlex.quote(script), check=True)
         for _ in range(30):

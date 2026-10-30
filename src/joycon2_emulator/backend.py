@@ -80,7 +80,8 @@ def install_services(device, on_command):
     return inputs, response
 
 
-async def serve(address, transport, bond_file, seconds, calibration=None, test_button=None, control_socket=None):
+async def serve(address, transport, bond_file, seconds, calibration=None, test_button=None, control_socket=None,
+                auto_join=False):
     async with await open_transport(transport) as hci:
         config = DeviceConfiguration()
         config.name = "Joy-Con 2 (R)"
@@ -154,6 +155,7 @@ async def serve(address, transport, bond_file, seconds, calibration=None, test_b
                 if active_connection is connection:
                     active_connection = None
                     state.connected = state.ready = False
+                    state.registering = False
                     state.release()
                 LOG.info("Disconnected: %s; queued input released", reason)
             connection.on("disconnection", disconnected)
@@ -180,6 +182,9 @@ async def serve(address, transport, bond_file, seconds, calibration=None, test_b
             pulse_sent = False
             last_input = ((), 0.0, 0.0)
             active_reports = 0
+            joined_connection = None
+            join_until = 0
+            join_pressed = False
             counter = 0
             deadline = time.monotonic() + seconds if seconds else float("inf")
             while time.monotonic() < deadline and not state.stopping:
@@ -190,11 +195,28 @@ async def serve(address, transport, bond_file, seconds, calibration=None, test_b
                                    and active_connection and active_connection.is_encrypted)
                 if was_ready and not state.ready:
                     state.release()
+                    state.registering = False
                 if state.ready:
+                    if auto_join and active_connection is not joined_connection:
+                        joined_connection = active_connection
+                        state.registering = True
+                        join_until = time.monotonic() + 2.25
+                        join_pressed = False
+                        LOG.info("Automatic SL+SR scheduled after two-second initialization grace")
+                    if state.registering and time.monotonic() >= join_until:
+                        state.registering = False
+                        state.release()
+                        LOG.info("Automatic SL+SR released; console registration requires confirmation")
                     if queued_reports == 0:
                         stream_start = time.monotonic()
                         LOG.info("Subscribed right-report stream enabled")
                     buttons, x, y = state.snapshot(time.monotonic())
+                    if state.registering:
+                        pressing = time.monotonic() >= join_until - 0.25
+                        if pressing and not join_pressed:
+                            join_pressed = True
+                            LOG.info("Automatic SL+SR registration pulse started")
+                        buttons, x, y = (("SL", "SR") if pressing else ()), 0.0, 0.0
                     if pulse:
                         buttons = pulse.at(time.monotonic() - stream_start)
                     if pulse and buttons and not pulse_sent:

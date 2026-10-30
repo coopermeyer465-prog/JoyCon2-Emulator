@@ -44,6 +44,7 @@ class InputState:
         self.ready = False
         self.connected = False
         self.stopping = False
+        self.registering = False
         self.steps = []
         self.started = 0
         self.generation = 0
@@ -71,7 +72,7 @@ class InputState:
         if not isinstance(operation, str) or operation not in allowed or set(request) - allowed[operation]:
             raise ValueError("Unknown operation or request fields")
         if operation in ("set", "sequence"):
-            if not self.ready or self.stopping:
+            if not self.ready or self.registering or self.stopping:
                 raise ValueError("Controller is not ready; no input was queued")
             values = [request.get("state")] if operation == "set" else request.get("steps")
             if not isinstance(values, list) or not 1 <= len(values) <= 256:
@@ -87,7 +88,8 @@ class InputState:
                 self.stopping = True
         buttons, x, y = self.snapshot(now)
         return {"ok": True, "right_only": True, "connected": self.connected,
-                "ready": self.ready, "stopping": self.stopping,
+                "ready": self.ready and not self.registering, "registering": self.registering,
+                "stopping": self.stopping,
                 "generation": self.generation, "buttons": list(buttons), "x": x, "y": y,
                 "queued_steps": len(self.steps)}
 

@@ -23,6 +23,14 @@
   neutral reports and opt-in command input. The adapter keeps its own public identity.
 - `scripts/j2`: Mac-to-Vagrant command wrapper and transient systemd service lifecycle;
   restores classic Bluetooth services on exit. Private configuration stays in `.state`.
+- `integrations/nxbt`: optional upstream web overlay and stdlib-only Unix-socket
+  bridge. The web process stays alive while a separate Python environment runs
+  Bumble, avoiding NXBT's older cryptography dependency. Exclusive backend
+  selection hands the adapter between BlueZ and Bumble; browser input leases
+  expire after 450 ms without refresh. Pro macros remain native; right-half
+  sequences use the bounded JSON API. Socket sessions own their controller.
+- `integrations/wake`: local-capture scanner and adapter-specific stock-firmware
+  replay helpers. No personal wake identities or captures are included.
 - `cli.py`: read-only diagnostics, local capture inspection and opt-in lab startup.
 - `tests/`: packet validation, known challenge vector, persistence permissions and
   exact GATT layout. Unit tests do not certify compatibility with a console.
@@ -52,8 +60,9 @@
 ## Current Limitations
 
 The lab supplies generated metadata and optional privately read calibration blocks,
-but does not respond to arbitrary initialization commands or provide a live
-gamepad relay. Some opaque query responses are documented compatibility constants,
+but does not respond to arbitrary initialization commands. The optional web
+bridge provides input forwarding; broad hardware/gameplay behavior remains
+unverified. Some opaque query responses are documented compatibility constants,
 not implementations of their unknown underlying features. It must not be used as
 a replacement for a normal controller yet.
 Stock BLE support in a USB adapter is not proof of Nintendo's below-standard timing.

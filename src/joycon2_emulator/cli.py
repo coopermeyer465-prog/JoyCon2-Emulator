@@ -26,6 +26,7 @@ def main():
     lab.add_argument("--bond-file", type=Path, default=Path(".state/bond.json"))
     lab.add_argument("--seconds", type=int, default=60)
     lab.add_argument("--control-socket", type=Path, help="Owner-only local command socket; permits --seconds 0")
+    lab.add_argument("--auto-join", action="store_true", help="Send SL+SR once after each initialized connection")
     lab.add_argument("--calibration", type=Path, help="Private allowlisted factory-data capture")
     lab.add_argument("--test-button", choices=("join", "home", "a", "b"),
                      help="Send one pulse after subscribed input starts (HOME 50 ms, others 250 ms); join means SL+SR")
@@ -66,12 +67,12 @@ def main():
     elif args.command == "serve":
         if platform.system() != "Linux" or not 0 <= args.seconds <= 300 or (args.seconds == 0 and not args.control_socket):
             parser.error("Serve needs Linux; use 1..300 seconds or 0 with --control-socket")
-        if args.control_socket and args.test_button:
-            parser.error("Choose a command socket or a diagnostic pulse, not both")
+        if (args.control_socket or args.auto_join) and args.test_button:
+            parser.error("Diagnostic pulses cannot be combined with a command socket or auto-join")
         from .backend import serve
         logging.basicConfig(level=logging.INFO)
         asyncio.run(serve(args.address, args.transport, args.bond_file, args.seconds,
-                          args.calibration, args.test_button, args.control_socket))
+                          args.calibration, args.test_button, args.control_socket, args.auto_join))
     elif args.command == "control":
         from .control import send
         request = {"op": args.action}
