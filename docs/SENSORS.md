@@ -123,12 +123,19 @@ joycon2-emulator control --socket .state/sensor-test.sock release
 Alternatively, `--experimental-motion-baseline .state/private-compact-stationary.json`
 selects the failed stationary-baseline experiment. It does not claim that the
 retained opaque motion block is valid generated orientation data. Both modes
-keep controls neutral and reject button/stick commands, auto-join and diagnostic
+discard captured controls and reject general button/stick commands, auto-join and diagnostic
 button pulses. Feature configuration commands not implemented by the backend
 remain rejected, not silently acknowledged. Neither mode is enabled by default
 by `j2 start` or the desktop launchers. The web UI can explicitly select the
 bounded command-mouse/moving-motion diagnostic. Keep captures private; no sensor arrays
 or keys are distributed with this code.
+
+The web command-mouse mode permits a separate fixed `mouse_click` operation:
+one explicit 80 ms A tap, only while the native mouse is ready. Repeated clicks
+inside that interval cannot extend the hold. Release, feature disable and loss
+of readiness clear it. Only the generated A bit can pass through command-mouse
+playback; captured buttons and all other generated buttons remain excluded.
+Full recorded-sensor playback without command mouse still sends no buttons.
 
 ## Grip Test Result
 

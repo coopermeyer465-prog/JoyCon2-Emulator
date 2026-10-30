@@ -121,7 +121,7 @@ const mouseCapture = document.getElementById("mouse-capture");
 let nativeMouseRequested = false;
 let nativeMouseSeen = false;
 let mouseBusy = false;
-let mouseDrag = null;
+let mouseCapturePending = false;
 let hidDevice = null;
 let hidLayouts = null;
 let hidState = null;
@@ -140,6 +140,7 @@ function resetInput() {
 function sendInputIfChanged() {
     if (nativeMouseRequested || STATE?.[NXBT_CONTROLLER_INDEX]?.native_test) return;
     const outgoing = JSON.parse(JSON.stringify(INPUT_PACKET));
+    if (mouseInput.pressingA(performance.now())) outgoing.A = true;
     const mouseStick = mouseInput.stick(performance.now());
     if (mouseStick) {
         const stick = outgoing[mouseStick.target === "left" ? "L_STICK" : "R_STICK"];
@@ -169,17 +170,19 @@ window.addEventListener("blur", resetInput);
 
 function stopMouseCapture() {
     const wasNative = mouseInput.active && mouseInput.mode === "native";
-    mouseInput.stop(); mouseDrag = null;
+    mouseInput.stop(); mouseCapturePending = false;
     mouseSurface.classList.remove("capturing");
     mouseCapture.textContent = "Capture Mouse";
+    mouseCapture.disabled = mouseTarget.value === "off" || NXBT_CONTROLLER_INDEX === false;
     mouseStatus.textContent = mouseTarget.value === "off" ? "Off" : "Stopped";
     if (document.pointerLockElement === mouseSurface) document.exitPointerLock();
-    if (wasNative && nativeMouseRequested) socket.emit("joycon2_mouse", {dx: 0, dy: 0, lifted: true});
+    if (wasNative && nativeMouseRequested) socket.emit("joycon2_mouse_release");
 }
 
 function updateMouseAvailability() {
     const joycon = ACTIVE_BACKEND === "joycon2_right";
-    mouseCapture.disabled = mouseTarget.value === "off" || NXBT_CONTROLLER_INDEX === false;
+    mouseCapture.disabled = mouseTarget.value === "off" || NXBT_CONTROLLER_INDEX === false
+        || mouseCapturePending || mouseInput.active;
     mouseTarget.querySelector('[value="left"]').disabled = joycon;
     mouseTarget.querySelector('[value="native"]').disabled = !joycon || !STATE?.[NXBT_CONTROLLER_INDEX]?.native_available;
     if ((joycon && mouseTarget.value === "left") || (!joycon && mouseTarget.value === "native")) {
@@ -195,18 +198,39 @@ function updateMouseAvailability() {
 
 function beginMouseCapture() {
     const mode = mouseTarget.value;
-    if (mode === "off" || NXBT_CONTROLLER_INDEX === false) return;
-    if (mouseInput.active) { stopMouseCapture(); sendInputIfChanged(); return; }
+    if (mode === "off" || NXBT_CONTROLLER_INDEX === false || mouseInput.active || mouseCapturePending) return;
+    if (typeof mouseSurface.requestPointerLock !== "function") {
+        mouseStatus.textContent = "Pointer lock unsupported in this browser";
+        return;
+    }
+    mouseCapturePending = true;
+    mouseCapture.disabled = true;
+    mouseStatus.textContent = "Requesting capture...";
+    try {
+        const locking = mouseSurface.requestPointerLock();
+        locking?.catch(mouseCaptureFailed);
+    } catch (_) {
+        mouseCaptureFailed();
+    }
+}
+
+function mouseCaptureFailed(error) {
+    if (document.pointerLockElement === mouseSurface) return;
+    mouseCapturePending = false;
+    stopMouseCapture();
+    mouseStatus.textContent = "Pointer lock denied";
+    console.warn("Mouse capture failed", error?.name || error?.type || "unknown", error?.message || "");
+}
+
+function activateLockedMouse() {
+    const mode = mouseTarget.value;
+    if (!mouseCapturePending || mode === "off") { document.exitPointerLock(); return; }
+    mouseCapturePending = false;
     mouseInput.start(mode);
     mouseSurface.classList.add("capturing");
-    mouseCapture.textContent = "Stop Capture";
+    mouseCapture.textContent = "Captured";
+    mouseCapture.disabled = true;
     mouseStatus.textContent = "Captured";
-    try {
-        const locking = mouseSurface.requestPointerLock?.();
-        locking?.catch(() => { mouseStatus.textContent = "Drag active"; });
-    } catch (_) {
-        mouseStatus.textContent = "Drag active";
-    }
     if (mode === "native" && !nativeMouseRequested) {
         nativeMouseRequested = true; nativeMouseSeen = false;
         mouseStatus.textContent = "Connecting native cursor...";
@@ -357,32 +381,37 @@ document.getElementById("mouse-gain").addEventListener("input", event => {
     mouseInput.gain = Number(event.target.value);
     document.getElementById("mouse-gain-value").textContent = `${mouseInput.gain}x`;
 });
-mouseCapture.addEventListener("click", beginMouseCapture);
-mouseSurface.addEventListener("pointerdown", event => {
-    if (event.target.closest("button") || event.button !== 0) return;
-    if (!mouseInput.active) beginMouseCapture();
-    if (mouseInput.active) {
-        mouseDrag = {id: event.pointerId, x: event.clientX, y: event.clientY};
-        mouseSurface.setPointerCapture(event.pointerId);
-    }
-});
-mouseSurface.addEventListener("pointermove", event => {
-    if (!mouseDrag || document.pointerLockElement === mouseSurface) return;
-    mouseInput.move(event.clientX - mouseDrag.x, event.clientY - mouseDrag.y, performance.now());
-    mouseDrag.x = event.clientX; mouseDrag.y = event.clientY;
-});
-for (const type of ["pointerup", "pointercancel", "lostpointercapture"]) {
-    mouseSurface.addEventListener(type, () => {
-        if (document.pointerLockElement !== mouseSurface && mouseDrag) { stopMouseCapture(); sendInputIfChanged(); }
-        mouseDrag = null;
-    });
-}
+mouseSurface.addEventListener("click", beginMouseCapture);
 document.addEventListener("mousemove", event => {
     if (document.pointerLockElement === mouseSurface) mouseInput.move(event.movementX, event.movementY, performance.now());
 });
 document.addEventListener("pointerlockchange", () => {
-    if (document.pointerLockElement !== mouseSurface && mouseInput.active) { stopMouseCapture(); sendInputIfChanged(); }
+    if (document.pointerLockElement === mouseSurface) activateLockedMouse();
+    else if (mouseInput.active || mouseCapturePending) { stopMouseCapture(); sendInputIfChanged(); }
 });
+document.addEventListener("pointerlockerror", mouseCaptureFailed);
+document.addEventListener("mousedown", event => {
+    if (document.pointerLockElement !== mouseSurface || !mouseInput.active) return;
+    event.preventDefault(); event.stopImmediatePropagation();
+    if (event.button !== 0) return;
+    if (mouseInput.mode === "native" && !STATE?.[NXBT_CONTROLLER_INDEX]?.mouse_ready) return;
+    if (!mouseInput.click(performance.now())) return;
+    if (mouseInput.mode === "native") {
+        socket.emit("joycon2_mouse_click", result => {
+            if (!result?.ok && mouseInput.active) mouseStatus.textContent = "Click dropped";
+        });
+    } else sendInputIfChanged();
+}, true);
+document.addEventListener("click", event => {
+    if (document.pointerLockElement === mouseSurface) {
+        event.preventDefault(); event.stopImmediatePropagation();
+    }
+}, true);
+document.addEventListener("keydown", event => {
+    if (event.key === "Escape" && (mouseInput.active || mouseCapturePending)) {
+        stopMouseCapture(); sendInputIfChanged();
+    }
+}, true);
 mouseSurface.addEventListener("contextmenu", event => event.preventDefault());
 setInterval(() => {
     if (!nativeMouseRequested || !mouseInput.active || mouseBusy || document.hidden

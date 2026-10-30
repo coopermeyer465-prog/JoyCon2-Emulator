@@ -219,6 +219,28 @@ def handle_mouse_input(value):
         return {"ok": False}
 
 
+@sio.on('joycon2_mouse_click')
+def handle_mouse_click(value=None):
+    if value is not None or not owns(JOYCON2_INDEX) or joycon2.mouse_test_active is not True:
+        return {"ok": False}
+    try:
+        joycon2.request({"op": "mouse_click"})
+        return {"ok": True}
+    except (OSError, ValueError):
+        return {"ok": False}
+
+
+@sio.on('joycon2_mouse_release')
+def handle_mouse_release():
+    if not owns(JOYCON2_INDEX) or joycon2.mouse_test_active is not True:
+        return {"ok": False}
+    try:
+        joycon2.request({"op": "release"})
+        return {"ok": True}
+    except (OSError, ValueError):
+        return {"ok": False}
+
+
 @sio.on('joycon2_join')
 def handle_joycon2_join():
     if owns(JOYCON2_INDEX):

@@ -247,17 +247,17 @@ async def serve(address, transport, bond_file, seconds, calibration=None, test_b
                     report = right_report(counter, buttons, x=raw_x, y=raw_y, mouse=mouse)
                     if replay is not None and controller.features.enabled & 0x14 == 0x14:
                         if queued_reports == 0:
-                            LOG.warning("Private sensor playback; controls neutral; recorded motion is not live gyro")
+                            LOG.warning("Private sensor playback; captured controls discarded; recorded motion is not live gyro")
                         if motion_baseline is not None:
                             now_ms = int(time.monotonic() * 1000)
                             interval = min(4095, max(1, now_ms - last_motion_ms)) if last_motion_ms is not None else 15
                             last_motion_ms = now_ms
                             report = replay.baseline_report(
-                                right_report(counter, x=center_x, y=center_y, mouse=mouse),
+                                right_report(counter, buttons, x=center_x, y=center_y, mouse=mouse),
                                 controller.features.enabled, now_ms, interval)
                         else:
                             report = replay.next_report(
-                                right_report(counter, x=center_x, y=center_y,
+                                right_report(counter, buttons, x=center_x, y=center_y,
                                              mouse=mouse if replay_command_mouse else None),
                                 controller.features.enabled, command_mouse=replay_command_mouse)
                         if report is None:

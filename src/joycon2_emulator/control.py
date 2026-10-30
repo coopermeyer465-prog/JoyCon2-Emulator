@@ -54,11 +54,13 @@ class InputState:
         self.mouse_contact_until = 0
         self.mouse_surface = 255
         self.mouse_only = False
+        self.mouse_click_until = 0
 
     def clear_mouse(self):
         self.pending_mouse = None
         self.mouse_contact_until = 0
         self.mouse_surface = 255
+        self.mouse_click_until = 0
 
     def release(self):
         self.steps = []
@@ -81,6 +83,8 @@ class InputState:
         return (0, 0, self.mouse_surface if now < self.mouse_contact_until else 255)
 
     def snapshot(self, now):
+        if self.mouse_only and now < self.mouse_click_until:
+            return ("A",), 0.0, 0.0
         elapsed = now - self.started
         for value in self.steps:
             if elapsed < value["duration"]:
@@ -96,10 +100,16 @@ class InputState:
         operation = request.get("op")
         allowed = {"set": {"op", "state"}, "sequence": {"op", "steps"},
                    "release": {"op"}, "status": {"op"}, "stop": {"op"},
-                   "mouse": {"op", "dx", "dy", "lifted", "surface"}}
+                   "mouse": {"op", "dx", "dy", "lifted", "surface"},
+                   "mouse_click": {"op"}}
         if not isinstance(operation, str) or operation not in allowed or set(request) - allowed[operation]:
             raise ValueError("Unknown operation or request fields")
-        if operation == "mouse":
+        if operation == "mouse_click":
+            if (not self.mouse_only or not self.ready or self.registering or self.stopping
+                    or not self.mouse_supported or not self.mouse_enabled or now < self.mouse_click_until):
+                raise ValueError("Native mouse click is not ready")
+            self.mouse_click_until = now + 0.08
+        elif operation == "mouse":
             if (not self.ready or self.registering or self.stopping
                     or not self.mouse_supported or not self.mouse_enabled):
                 raise ValueError("Experimental mouse is not enabled by the console")

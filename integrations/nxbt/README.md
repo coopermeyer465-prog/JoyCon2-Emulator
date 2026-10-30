@@ -78,12 +78,17 @@ permissions; this project does not bypass them. This is not a two-stick controll
 ## Mouse Surface
 
 The **Mouse** section has an Off / Switch 2 cursor / Left stick / Right stick
-target selector and sensitivity slider. Choose a target, then **Capture Mouse**.
-Pointer lock captures relative movement; Escape releases it. Dragging within the
-surface is a fallback for browsers that do not grant pointer lock, including
-touch/pen input. Mouse clicks do not press console buttons. Blur, hidden tabs,
-mode changes and disconnect release the mouse; stick movement returns to center
+target selector and sensitivity slider. Choose a target, then click the surface
+or **Capture Mouse** once. Real pointer lock hides the laptop cursor and captures
+relative movement without holding a button or reaching a screen edge; Escape
+releases it. The activation click never presses a console button. Subsequent
+left clicks send an 80 ms A tap. Other mouse buttons are not mapped. Blur, hidden tabs,
+mode changes and disconnect release the mouse and pending A tap; stick movement returns to center
 after 90 ms without motion. Keyboard/WebHID input remains available independently.
+Unsupported or denied pointer lock is reported instead of silently switching to
+drag mode. Use a pointer-lock-capable desktop browser; capture was verified with
+a real click in the focused Chrome window on the development Mac. Automated or
+background-tab clicks can be denied even when a normal foreground click works.
 
 Pro mode supports either physical analog stick. A single Joy-Con 2 (R) supports
 only its right stick, so the Left stick target is disabled in that mode. Mouse
@@ -93,6 +98,7 @@ gamepad source selector. The normal orientation selector still applies.
 **Switch 2 cursor (30s test)** is experimental, not standalone generated mouse or
 gyro emulation. It runs the successful private moving-motion diagnostic with
 browser-generated optical fields. It temporarily pauses normal buttons/sticks,
+except for explicit captured-mouse A taps,
 ends within 30 seconds (or earlier when samples run out), and restores the normal
 auto-joining controller. Switching targets also ends the diagnostic. Another tab
 cannot start it or send mouse input. Stale/overflow movement is discarded, never

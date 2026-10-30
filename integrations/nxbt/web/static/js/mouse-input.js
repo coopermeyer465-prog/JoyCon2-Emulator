@@ -2,7 +2,7 @@
     "use strict";
     class MouseInput {
         constructor() { this.mode = "off"; this.gain = 1; this.stop(); }
-        stop() { this.active = false; this.x = this.y = this.dx = this.dy = 0; this.last = -Infinity; }
+        stop() { this.active = false; this.x = this.y = this.dx = this.dy = 0; this.last = -Infinity; this.clickUntil = 0; }
         start(mode) {
             if (!["native", "left", "right"].includes(mode)) throw new Error("Invalid mouse target");
             this.stop(); this.mode = mode; this.active = true;
@@ -29,6 +29,12 @@
             this.dx -= dx; this.dy -= dy;
             return dx || dy ? {dx, dy} : null;
         }
+        click(now) {
+            if (!this.active || !Number.isFinite(now) || now < this.clickUntil) return false;
+            this.clickUntil = now + 80;
+            return true;
+        }
+        pressingA(now) { return this.active && now < this.clickUntil; }
     }
     root.NxbtMouse = {MouseInput};
     if (typeof module !== "undefined") module.exports = root.NxbtMouse;

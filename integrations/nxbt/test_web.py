@@ -140,6 +140,20 @@ class WebTests(unittest.TestCase):
         web.restore_after_mouse(owner, 1)
         web.joycon2.start.assert_not_called()
 
+    def test_native_mouse_click_and_release_require_owner_and_explicit_mode(self):
+        self.create()
+        web.joycon2.request.reset_mock()
+        self.assertFalse(self.owner.emit("joycon2_mouse_click", callback=True)["ok"])
+        web.joycon2.mouse_test_active = True
+        self.assertFalse(self.other.emit("joycon2_mouse_click", callback=True)["ok"])
+        self.assertFalse(self.other.emit("joycon2_mouse_release", callback=True)["ok"])
+        self.assertFalse(self.owner.emit("joycon2_mouse_click", {"button": "HOME"}, callback=True)["ok"])
+        web.joycon2.request.assert_not_called()
+        self.assertTrue(self.owner.emit("joycon2_mouse_click", callback=True)["ok"])
+        web.joycon2.request.assert_called_with({"op": "mouse_click"})
+        self.assertTrue(self.owner.emit("joycon2_mouse_release", callback=True)["ok"])
+        web.joycon2.request.assert_called_with({"op": "release"})
+
 
 if __name__ == "__main__":
     unittest.main()

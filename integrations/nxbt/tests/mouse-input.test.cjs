@@ -22,4 +22,16 @@ mouse.gain = 0.25; mouse.move(0.1, 0, 3); assert.equal(mouse.mouse(), null);
 mouse.move(0.4, 0, 4); assert.deepEqual(mouse.mouse(), {dx: 1, dy: 0});
 mouse.move(8, 8, 5); mouse.stop(); assert.equal(mouse.mouse(), null);
 assert.throws(() => mouse.start('both'));
+assert.equal(mouse.click(0), false);
+for (const target of ['left', 'right', 'native']) {
+    mouse.start(target);
+    assert.equal(mouse.pressingA(0), false);
+    assert.equal(mouse.click(0), true);
+    assert.equal(mouse.pressingA(79), true);
+    assert.equal(mouse.click(40), false);
+    assert.equal(mouse.pressingA(80), false);
+    assert.equal(mouse.click(100), true);
+    mouse.stop(); assert.equal(mouse.pressingA(101), false);
+    assert.equal(mouse.click(Infinity), false);
+}
 console.log('Mouse mapping tests passed');

@@ -2,6 +2,22 @@
 
 ## 2026-10-30
 
+### Click-To-Capture and Mouse A
+
+- Mouse capture now activates only after real pointer lock succeeds. A single
+  click locks and hides the laptop cursor; Escape releases it. Removed the silent
+  drag fallback and report unsupported/denied capture explicitly.
+- Later left clicks issue bounded 80 ms A taps, independent of keyboard/WebHID.
+  The activation click does not send A. Native cursor mode uses a dedicated
+  owner-checked click operation; captured controls and arbitrary buttons remain
+  excluded from recorded sensor playback.
+- Verified actual pointer capture and Escape release with a physical click in
+  the focused Chrome window. Automated/background clicks were rejected by the
+  browser; no live A press was sent to the console during verification.
+- 95 core tests, 10 web-handler tests and mouse mapping/click-timing checks pass.
+
+![Chrome pointer capture](docs/images/nxbt-mouse-locked.png)
+
 ### Browser Mouse Surface
 
 - Added an independent mouse surface, target selector and sensitivity slider,

@@ -46,7 +46,7 @@ class SensorReplay:
         mouse, motion = self.samples[self.index]
         self.index += 1
         report = bytearray(neutral)
-        report[2:4] = bytes(2)
+        report[2:4] = bytes((neutral[2] & 2, 0)) if command_mouse else bytes(2)
         if not command_mouse:
             report[9:14] = mouse
         report[15:56] = motion
@@ -64,7 +64,7 @@ class SensorReplay:
                 or not 1 <= interval_ms <= 4095):
             raise ValueError("Expected nonnegative milliseconds and a 1..4095 ms interval")
         report = bytearray(neutral)
-        report[2:4] = bytes(2)
+        report[2:4] = bytes((neutral[2] & 2, 0))
         report[15:56] = self.samples[len(self.samples) // 2][1]
         timing = (timestamp_ms & 4095) | (interval_ms << 12)
         report[16:19] = timing.to_bytes(3, "little")
