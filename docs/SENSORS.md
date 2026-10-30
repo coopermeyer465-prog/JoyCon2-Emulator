@@ -132,9 +132,9 @@ bounded command-mouse/moving-motion diagnostic. Keep captures private; no sensor
 or keys are distributed with this code.
 
 The web command-mouse mode permits a separate fixed `mouse_click` operation:
-one explicit 80 ms A tap, only while the native mouse is ready. Repeated clicks
+one explicit 80 ms R tap, only while the native mouse is ready. Repeated clicks
 inside that interval cannot extend the hold. Release, feature disable and loss
-of readiness clear it. Only the generated A bit can pass through command-mouse
+of readiness clear it. Only the generated R bit can pass through command-mouse
 playback; captured buttons and all other generated buttons remain excluded.
 Full recorded-sensor playback without command mouse still sends no buttons.
 

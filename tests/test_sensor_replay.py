@@ -117,16 +117,16 @@ class SensorReplayTests(unittest.TestCase):
                 state.execute(request, 0)
         self.assertTrue(state.execute({"op": "mouse", "dx": 1}, 0)["ok"])
 
-    def test_only_explicit_generated_a_can_accompany_command_mouse(self):
+    def test_only_explicit_generated_r_can_accompany_command_mouse(self):
         report = right_report(buttons=("A", "HOME", "R", "C"))
         full_replay = self.load([self.frame()]).next_report(report, 0x17)
         command_replay = self.load([self.frame()]).next_report(report, 0x17, command_mouse=True)
         self.assertEqual(full_replay[2:4], bytes(2))
-        self.assertEqual(command_replay[2:4], bytes((2, 0)))
+        self.assertEqual(command_replay[2:4], bytes((16, 0)))
         state = InputState()
         state.ready = state.mouse_supported = state.mouse_enabled = state.mouse_only = True
         state.execute({"op": "mouse_click"}, 0)
-        for now, expected in ((0.04, 2), (0.08, 0)):
+        for now, expected in ((0.04, 16), (0.08, 0)):
             buttons, _, _ = state.snapshot(now)
             generated = right_report(buttons=buttons)
             replayed = self.load([self.frame()]).next_report(generated, 0x17, command_mouse=True)

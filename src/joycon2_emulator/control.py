@@ -84,7 +84,7 @@ class InputState:
 
     def snapshot(self, now):
         if self.mouse_only and now < self.mouse_click_until:
-            return ("A",), 0.0, 0.0
+            return ("R",), 0.0, 0.0
         elapsed = now - self.started
         for value in self.steps:
             if elapsed < value["duration"]:

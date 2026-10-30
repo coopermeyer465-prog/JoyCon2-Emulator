@@ -17,6 +17,11 @@
 - The NXBT overlay installer retains an existing private `mouse_capture` path.
   Verification: 98 core tests and 11 installed web-handler tests pass.
 
+### Mouse Click Mapping
+
+- Changed captured mouse left-click from a bounded A tap to a bounded R tap in
+  both stick-target and native cursor modes.
+
 ### Click-To-Capture and Mouse A
 
 - Mouse capture now activates only after real pointer lock succeeds. A single

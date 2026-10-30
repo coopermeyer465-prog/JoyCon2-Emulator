@@ -146,7 +146,7 @@ function sendInputIfChanged() {
         if (until > now) outgoing[button] = true;
         else virtualPresses.delete(button);
     }
-    if (mouseInput.pressingA(performance.now())) outgoing.A = true;
+    if (mouseInput.pressingClick(performance.now())) outgoing.R = true;
     const mouseStick = mouseInput.stick(performance.now());
     if (mouseStick) {
         const stick = outgoing[mouseStick.target === "left" ? "L_STICK" : "R_STICK"];

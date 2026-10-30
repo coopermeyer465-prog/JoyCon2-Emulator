@@ -88,8 +88,8 @@ target selector and sensitivity slider. Choose a target, then click the surface
 or **Capture Mouse** once. Real pointer lock hides the laptop cursor and captures
 relative movement without holding a button or reaching a screen edge; Escape
 releases it. The activation click never presses a console button. Subsequent
-left clicks send an 80 ms A tap. Other mouse buttons are not mapped. Blur, hidden tabs,
-mode changes and disconnect release the mouse and pending A tap; stick movement returns to center
+left clicks send an 80 ms R tap. Other mouse buttons are not mapped. Blur, hidden tabs,
+mode changes and disconnect release the mouse and pending R tap; stick movement returns to center
 after 90 ms without motion. Keyboard/WebHID input remains available independently.
 Unsupported or denied pointer lock is reported instead of silently switching to
 drag mode. Use a pointer-lock-capable desktop browser; capture was verified with
@@ -104,7 +104,7 @@ gamepad source selector. The normal orientation selector still applies.
 **Switch 2 cursor (5 min test)** is experimental, not standalone generated mouse or
 gyro emulation. It runs the successful private moving-motion diagnostic with
 browser-generated optical fields. It temporarily pauses normal buttons/sticks,
-except for explicit captured-mouse A taps,
+except for explicit captured-mouse R taps,
 ends within five minutes and restores the normal
 auto-joining controller. Switching targets also ends the diagnostic. Another tab
 cannot start it or send mouse input. Stale/overflow movement is discarded, never

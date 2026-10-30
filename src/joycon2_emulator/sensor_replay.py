@@ -83,7 +83,7 @@ class SensorReplay:
                     return None
                 _, mouse, motion = sample
         report = bytearray(neutral)
-        report[2:4] = bytes((neutral[2] & 2, 0)) if command_mouse else bytes(2)
+        report[2:4] = bytes((neutral[2] & 16, 0)) if command_mouse else bytes(2)
         if not command_mouse:
             report[9:14] = mouse
         report[15:56] = motion

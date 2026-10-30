@@ -9,13 +9,13 @@ from joycon2_emulator.protocol import right_report
 
 
 class MouseTests(unittest.TestCase):
-    def test_explicit_native_click_is_only_a_bounded_a_press(self):
+    def test_explicit_native_click_is_only_a_bounded_r_press(self):
         state = self.state()
         with self.assertRaises(ValueError):
             state.execute({"op": "mouse_click"}, 0)
         state.mouse_only = True
         state.execute({"op": "mouse_click"}, 0)
-        self.assertEqual(state.snapshot(0.04), (("A",), 0, 0))
+        self.assertEqual(state.snapshot(0.04), (("R",), 0, 0))
         with self.assertRaises(ValueError):
             state.execute({"op": "mouse_click"}, 0.04)
         with self.assertRaises(ValueError):

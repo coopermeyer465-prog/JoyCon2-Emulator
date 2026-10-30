@@ -34,7 +34,7 @@
             this.clickUntil = now + 80;
             return true;
         }
-        pressingA(now) { return this.active && now < this.clickUntil; }
+        pressingClick(now) { return this.active && now < this.clickUntil; }
     }
     root.NxbtMouse = {MouseInput};
     if (typeof module !== "undefined") module.exports = root.NxbtMouse;
